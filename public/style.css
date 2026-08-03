@@ -1,0 +1,868 @@
+:root {
+  --teal: #0F6D61;
+  --teal-deep: #0A2E2B;
+  --teal-line: #2EA89A;
+  --teal-soft: #7FB8B0;
+  --gold: #E8A63B;
+  --gold-deep: #C9861F;
+  --cream: #F7F3EA;
+  --ink: #08211E;
+  --danger: #B91C1C;
+  --danger-light: #FEE2E2;
+
+  --border: #E2E8F0;
+  --muted: #64748B;
+  --white: #FFFFFF;
+  --radius-card: 16px;
+  --radius-btn: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--cream);
+  color: var(--ink);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.site-footer {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  z-index: 1500;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.site-footer a {
+  color: inherit;
+  pointer-events: auto;
+}
+
+.site-footer a:hover { color: var(--teal); }
+
+/* Mobile Screen Container (centered max 440px width) */
+.mobile-wrapper {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  background: var(--white);
+  box-shadow: 0 10px 40px rgba(8, 33, 30, 0.12);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+@media (min-width: 441px) {
+  body {
+    padding: 20px 0;
+  }
+  .mobile-wrapper {
+    min-height: calc(100vh - 40px);
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid rgba(10, 46, 43, 0.12);
+  }
+}
+
+/* Login Screen */
+.login-screen {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--teal-deep);
+  padding: 24px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Registration has more fields than login. Keep its action buttons reachable
+   on short laptop screens instead of clipping the card inside the app shell. */
+#registerCard {
+  align-self: flex-start;
+  margin: 0 auto;
+}
+
+.login-card {
+  background: var(--white);
+  border-radius: var(--radius-card);
+  padding: 32px 24px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  box-shadow: 0 12px 32px rgba(8, 33, 30, 0.18);
+}
+
+.login-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--teal-deep);
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login-card label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--teal-deep);
+  display: block;
+  margin: 12px 0 4px;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-card input:focus {
+  border-color: var(--teal-line);
+}
+
+.login-card button {
+  width: 100%;
+  margin-top: 22px;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-btn);
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.login-card button:hover {
+  background: var(--gold-deep);
+  color: var(--white);
+}
+
+.login-card .login-link-btn {
+  margin-top: 10px;
+  background: transparent;
+  color: var(--teal);
+  border: 0;
+  padding: 6px;
+  font-size: 0.82rem;
+}
+
+.login-card .login-link-btn:hover { background: transparent; color: var(--teal-deep); text-decoration: underline; }
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 8px;
+  min-height: 16px;
+}
+
+/* App Shell */
+.app {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #FAF9F6;
+}
+
+.topbar {
+  background: var(--teal-deep);
+  color: var(--white);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--teal-line);
+}
+
+.topbar-eyebrow {
+  font-size: 0.68rem;
+  color: var(--teal-soft);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.topbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.ghost-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
+}
+
+.ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Tab Navigation (Icon + Label Buttons) */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.tabs::-webkit-scrollbar {
+  display: none; /* Chrome & Safari */
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 8px 10px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 10px;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+  flex: 0 0 auto;
+}
+
+.tab-btn i, .tab-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  color: var(--muted);
+}
+
+.tab-btn.active {
+  background: var(--cream);
+  color: var(--teal-deep);
+  font-weight: 700;
+}
+
+.tab-btn.active i, .tab-btn.active svg {
+  color: var(--teal);
+}
+
+/* Views & Cards */
+.views {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(10, 46, 43, 0.04);
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--teal-deep);
+}
+
+.card h3 {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--teal);
+  margin: 14px 0 8px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+input, select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  font-size: 0.88rem;
+  width: 100%;
+  background: var(--white);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--teal-line);
+}
+
+button.primary {
+  background: var(--teal);
+  color: var(--white);
+  border: none;
+  padding: 11px 18px;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+button.primary:hover {
+  background: var(--teal-deep);
+}
+
+button.danger {
+  background: var(--danger);
+  color: var(--white);
+  border: none;
+  padding: 7px 12px;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+button.subtle {
+  background: var(--cream);
+  color: var(--teal-deep);
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+button.subtle:hover {
+  background: #ede8dc;
+}
+
+/* Tables & Badges */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 8px;
+  /* Let the table size to its content and scroll horizontally instead of
+     squeezing columns until buttons/text wrap and overlap. */
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badge-active, .badge-success {
+  background: #E6F4F1;
+  color: var(--teal);
+}
+
+.badge-blocked, .badge-failed {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.badge-removed {
+  background: #E5E7EB;
+  color: var(--muted);
+}
+
+.badge-pending {
+  background: #FEF3C7;
+  color: var(--gold-deep);
+}
+
+.alert-error {
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid #FCA5A5;
+  padding: 10px 14px;
+  border-radius: var(--radius-btn);
+  font-size: 0.84rem;
+  margin: 10px 0;
+}
+
+.alert-success {
+  background: #E6F4F1;
+  color: var(--teal-deep);
+  border: 1px solid var(--teal-soft);
+  padding: 10px 14px;
+  border-radius: var(--radius-btn);
+  font-size: 0.84rem;
+  margin: 10px 0;
+}
+
+.output {
+  margin-top: 10px;
+  background: var(--teal-deep);
+  color: var(--teal-soft);
+  padding: 12px;
+  border-radius: var(--radius-btn);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.result-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #E6F4F1;
+  border: 1px solid var(--teal-soft);
+  color: var(--teal-deep);
+  padding: 12px;
+  border-radius: var(--radius-btn);
+  font-size: 0.84rem;
+  margin-top: 10px;
+}
+
+.result-card-icon, .payment-result-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--teal);
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.result-details { margin-top: 8px; display: grid; gap: 4px; }
+.result-details div { display: flex; gap: 8px; justify-content: space-between; }
+.result-details span { color: var(--muted); }
+
+.muted {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* Spinner Loading State */
+.loading-spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 16px;
+  gap: 10px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--cream);
+  border-top-color: var(--teal);
+  border-right-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+  gap: 8px;
+}
+
+.empty-state i, .empty-state svg {
+  width: 32px;
+  height: 32px;
+  color: var(--teal-soft);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Inline Confirmation Box */
+.inline-confirm-box {
+  background: var(--cream);
+  border: 1px solid var(--danger);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-btn);
+  padding: 12px;
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  white-space: normal;
+}
+
+.inline-confirm-box textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.84rem;
+  resize: vertical;
+}
+
+/* Urgent Renewals Row (<= 3 days) */
+tr.urgent-row {
+  background-color: #FEF2F2 !important;
+}
+
+tr.urgent-row td {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* Raw JSON Details Accordion */
+details.error-details {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* Hamburger menu button (mobile only, hidden on desktop below) */
+.menu-toggle-btn {
+  padding: 6px 8px;
+}
+
+/* Mobile: tabs become a slide-in off-canvas drawer, hidden by default */
+.nav-overlay {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .tabs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 78%;
+    max-width: 300px;
+    z-index: 1000;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 16px 12px;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 24px rgba(8, 33, 30, 0.18);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+  }
+
+  .tabs.open {
+    transform: translateX(0);
+  }
+
+  .tab-btn {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .tab-btn i, .tab-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .nav-overlay.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 33, 30, 0.45);
+    z-index: 999;
+  }
+}
+
+details.error-details summary {
+  cursor: pointer;
+  font-weight: 500;
+  outline: none;
+}
+
+/* ============================================================
+   Desktop layout (>= 900px)
+   Mobile styles above are untouched; this reflows the same
+   markup into a sidebar + content shell instead of a narrow
+   phone-width column.
+   ============================================================ */
+@media (min-width: 900px) {
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .mobile-wrapper {
+    max-width: 100%;
+    width: 100%;
+    height: 100vh;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .login-screen {
+    max-width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    border-radius: 0;
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 32px 20px;
+  }
+
+  .login-screen > .login-card:not(#registerCard) {
+    margin: auto;
+  }
+
+  /* App shell becomes a sidebar + content grid */
+  .app {
+    display: grid;
+    grid-template-columns: 232px 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "topbar topbar"
+      "tabs   views";
+    height: 100%;
+    min-height: 0;
+  }
+
+  .topbar {
+    grid-area: topbar;
+    padding: 18px 32px;
+  }
+
+  .menu-toggle-btn {
+    display: none;
+  }
+
+  /* Tabs become a vertical sidebar */
+  .tabs {
+    grid-area: tabs;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 16px 12px;
+    background: var(--white);
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+    overflow-x: visible;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .tab-btn {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+
+  .tab-btn i, .tab-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .views {
+    grid-area: views;
+    padding: 28px 36px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* Keep long-form cards readable instead of stretching edge to edge */
+  .views > .card {
+    max-width: 980px;
+  }
+
+  /* Form/stat grids go two-up, wrapping gracefully */
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+/* ============================================================
+   Manual page + persistent "Read Manual" nav link
+   ============================================================ */
+.manual-nav-link {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.manual-content {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.manual-content h1, .manual-content h2, .manual-content h3 {
+  color: var(--teal-deep);
+}
+
+.manual-content h1 {
+  font-size: 1.4rem;
+  margin-top: 0;
+}
+
+.manual-content h2 {
+  font-size: 1.1rem;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.manual-content h3 {
+  font-size: 0.98rem;
+  color: var(--teal);
+}
+
+.manual-content p, .manual-content li {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.manual-content code {
+  background: var(--cream);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.manual-content a {
+  color: var(--teal);
+}
+
+.manual-back-btn {
+  margin-bottom: 16px;
+}
+
+/* Payment result shown after returning from Paystack */
+.payment-result {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  width: min(400px, calc(100% - 32px));
+  padding: 16px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(8, 33, 30, 0.2);
+  animation: payment-result-in .28s ease-out;
+}
+
+.payment-result p { margin: 4px 0 0; color: var(--muted); line-height: 1.4; }
+.payment-result-success { background: var(--white); border: 1px solid var(--teal-soft); color: var(--teal-deep); }
+.payment-result-error { background: var(--white); border: 1px solid #FCA5A5; color: var(--danger); }
+.payment-result-error .payment-result-icon { background: var(--danger); }
+.payment-result-close { margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 1.35rem; cursor: pointer; }
+
+@keyframes payment-result-in {
+  from { opacity: 0; transform: translate(-50%, -12px) scale(.97); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}

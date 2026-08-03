@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SehaNet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/driver.js/dist/driver.js.iife.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/driver.js/dist/driver.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Mobile screen container wrapper -->
+  <div class="mobile-wrapper">
+    <!-- Login screen -->
+    <div id="loginScreen" class="login-screen">
+      <div class="login-card">
+        <div class="login-title">SehaNet</div>
+        <div class="login-subtitle">Admin &amp; Agent Console</div>
+        <label>Username</label>
+        <input id="loginUsername" autocomplete="off" />
+        <label>Password</label>
+        <input id="loginPassword" type="password" autocomplete="off" />
+        <div id="loginError" class="error-text"></div>
+        <button id="loginBtn">Log in</button>
+        <button id="showRegisterBtn" class="login-link-btn" type="button">New customer? Create an account</button>
+      </div>
+      <div id="registerCard" class="login-card hidden">
+        <div class="login-title">Create your account</div>
+        <div class="login-subtitle">Manage your SehaNet plan online.</div>
+        <label>Full name</label><input id="reg-fullName" autocomplete="name" />
+        <label>Phone number</label><input id="reg-phone" autocomplete="tel" />
+        <label>Email address</label><input id="reg-email" type="email" autocomplete="email" />
+        <label>Location</label><input id="reg-location" />
+        <label>Date of birth</label><input id="reg-dob" type="date" />
+        <label>Gender</label><select id="reg-gender"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
+        <label>Choose username</label><input id="reg-username" autocomplete="username" />
+        <label>Create password</label><input id="reg-password" type="password" autocomplete="new-password" />
+        <div id="registerError" class="error-text"></div>
+        <button id="registerBtn" type="button">Create account</button>
+        <button id="showLoginBtn" class="login-link-btn" type="button">Back to log in</button>
+      </div>
+    </div>
+
+    <!-- Main app -->
+    <div id="app" class="app hidden">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button id="menuToggle" class="ghost-btn menu-toggle-btn" aria-label="Open menu" aria-expanded="false">
+            <i data-lucide="menu" style="width:18px;height:18px;"></i>
+          </button>
+          <div>
+            <div class="topbar-eyebrow">SEHANET</div>
+            <div class="topbar-title" id="userLabel"></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button id="retakeTourBtn" class="ghost-btn" title="Retake Tour">
+            <i data-lucide="help-circle" style="width:14px;height:14px;"></i>
+          </button>
+          <button id="changePasswordBtn" class="ghost-btn" title="Change Password">
+            <i data-lucide="key" style="width:14px;height:14px;"></i>
+          </button>
+          <button id="logoutBtn" class="ghost-btn">
+            <i data-lucide="log-out" style="width:14px;height:14px;"></i> Log out
+          </button>
+        </div>
+      </header>
+
+      <div id="navOverlay" class="nav-overlay"></div>
+      <nav class="tabs" id="tabs"></nav>
+
+      <main id="views" class="views"></main>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="card hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:999; width:90%; max-width:380px; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+      <h2>Change Password</h2>
+      <div class="grid">
+        <input id="pwd-current" type="password" placeholder="Current Password" />
+        <input id="pwd-new" type="password" placeholder="New Password (min 6 chars)" />
+        <input id="pwd-confirm" type="password" placeholder="Confirm New Password" />
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button class="primary" id="pwd-submit">Update Password</button>
+        <button class="subtle" id="pwd-cancel">Cancel</button>
+      </div>
+      <div id="pwd-output" style="margin-top:8px;"></div>
+    </div>
+
+    <footer class="site-footer">
+      © SehaNet 2026 · Contact developer: <a href="mailto:salmansanusi90@gmail.com">salmansanusi90@gmail.com</a> · Contact admin: <a href="tel:07075664676">07075664676</a>
+    </footer>
+  </div>
+
+
+  <script src="app.js"></script>
+</body>
+</html>
