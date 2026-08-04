@@ -742,8 +742,8 @@ router.get("/policies", async (req, res) => {
        LEFT JOIN users u ON u.id = p.original_agent_id
        ${whereStr}
        ORDER BY p.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+       LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     res.json({
