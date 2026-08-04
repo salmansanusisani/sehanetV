@@ -84,7 +84,7 @@ app.use(express.json({ limit: "200kb" }));
 // server — lets one deployment serve both the API and the UI, no separate
 // static server needed. Also fixes cross-origin issues, since the frontend's
 // API calls resolve relative to whatever origin the page itself loaded from.
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
