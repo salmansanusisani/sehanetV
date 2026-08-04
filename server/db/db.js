@@ -5,16 +5,22 @@ const mysql = require("mysql2/promise");
 require("dotenv").config();
 
 const {
-  DB_HOST = "localhost",
-  DB_PORT = "3306",
-  DB_USER,
-  DB_PASSWORD,
-  DB_NAME,
+  DB_HOST: configuredDbHost,
+  DB_PORT: configuredDbPort,
+  DB_USER: configuredDbUser,
+  DB_PASSWORD: configuredDbPassword,
+  DB_NAME: configuredDbName,
 } = process.env;
 
-if (!DB_USER || !DB_NAME) {
+const DB_HOST = configuredDbHost || process.env.MYSQLHOST || process.env.MYSQL_HOST || "localhost";
+const DB_PORT = configuredDbPort || process.env.MYSQLPORT || process.env.MYSQL_PORT || "3306";
+const DB_USER = configuredDbUser || process.env.MYSQLUSER || process.env.MYSQL_USER || process.env.MYSQL_USERNAME || "root";
+const DB_PASSWORD = configuredDbPassword || process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD || process.env.MYSQL_ROOT_PASSWORD || "";
+const DB_NAME = configuredDbName || process.env.MYSQLDATABASE || process.env.MYSQL_DB || process.env.MYSQL_DATABASE || "sehanet";
+
+if (!configuredDbUser && !process.env.MYSQLUSER && !process.env.MYSQL_HOST) {
   console.warn(
-    "[db] Missing DB_USER / DB_NAME in .env — MySQL connections will fail until these are set."
+    "[db] Using local MySQL defaults. Set DB_* or Railway MYSQL* variables to connect successfully in production."
   );
 }
 
