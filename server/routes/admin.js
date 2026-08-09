@@ -12,16 +12,42 @@ const router = express.Router();
 // recorded policies/renewals, never from a browser-submitted value.
 router.get("/dashboard", async (req, res) => {
   try {
-    const [[policyTotals]] = await pool.execute("SELECT COUNT(*) AS count, COALESCE(SUM(amount_paid), 0) AS revenue FROM policies");
-    const [[renewalTotals]] = await pool.execute("SELECT COUNT(*) AS count, COALESCE(SUM(amount_paid), 0) AS revenue FROM renewals");
+    const [[policyTotals]] = await pool.execute("SELECT COUNT(*) AS count, COALESCE(SUM(amount_paid), 0) AS revenue, COALESCE(SUM(payment_fee), 0) AS fees FROM policies");
+    const [[renewalTotals]] = await pool.execute("SELECT COUNT(*) AS count, COALESCE(SUM(amount_paid), 0) AS revenue, COALESCE(SUM(payment_fee), 0) AS fees FROM renewals");
+    const [[bulkFeeTotals]] = await pool.execute("SELECT COALESCE(SUM(payment_fee), 0) AS fees FROM bulk_orders WHERE status IN ('paid', 'completed', 'partially_completed')");
     const [[customerTotals]] = await pool.execute("SELECT COUNT(*) AS count FROM customers");
     const [[activeTotals]] = await pool.execute("SELECT COUNT(*) AS count FROM policies WHERE status = 'Active'");
     const [ambassadors] = await pool.execute("SELECT id FROM users WHERE role = 'ambassador'");
     const balances = await Promise.all(ambassadors.map((a) => getAmbassadorBalance(a.id)));
     const ambassadorEarned = balances.reduce((sum, b) => sum + Number(b?.earned || 0), 0);
     const ambassadorPaid = balances.reduce((sum, b) => sum + Number(b?.paid || 0), 0);
-    const revenue = Number(policyTotals.revenue || 0) + Number(renewalTotals.revenue || 0);
-    res.json({ revenue, policyCount: policyTotals.count, renewalCount: renewalTotals.count, customerCount: customerTotals.count, activePolicies: activeTotals.count, ambassadorEarned, ambassadorPaid, ambassadorOutstanding: Math.max(0, ambassadorEarned - ambassadorPaid), adminNetBeforeExpenses: revenue - ambassadorEarned });
+    const settings = await getAllSettings();
+    const whPercent = parseFloat(settings.wellahealth_commission_percent || "0");
+    const planRevenue = Number(policyTotals.revenue || 0) + Number(renewalTotals.revenue || 0);
+    const paymentFees = Number(policyTotals.fees || 0) + Number(renewalTotals.fees || 0) + Number(bulkFeeTotals.fees || 0);
+    const revenue = planRevenue + paymentFees;
+    // WellaHealth's cut IS the admin's income: wh% of every plan payment goes
+    // to the admin, and the ambassador's commission is paid out of that cut.
+    const wellahealthCut = Math.round(planRevenue * (whPercent / 100) * 100) / 100;
+    const adminNetBeforeExpenses = revenue - ambassadorEarned;
+    // After expenses = admin's WellaHealth cut + payment fees, less the
+    // ambassador commission owed out of that cut.
+    const adminNetAfterExpenses = Math.round((wellahealthCut + paymentFees - ambassadorEarned) * 100) / 100;
+    res.json({
+      revenue,
+      paymentFees,
+      wellahealthCut,
+      wellahealthPercent: whPercent,
+      adminNetBeforeExpenses,
+      adminNetAfterExpenses,
+      policyCount: policyTotals.count,
+      renewalCount: renewalTotals.count,
+      customerCount: customerTotals.count,
+      activePolicies: activeTotals.count,
+      ambassadorEarned,
+      ambassadorPaid,
+      ambassadorOutstanding: Math.max(0, ambassadorEarned - ambassadorPaid),
+    });
   } catch (err) {
     console.error("Dashboard failed:", err);
     res.status(500).json({ error: "Could not load dashboard figures." });

@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS policies (
   end_date DATE,
   payment_reference VARCHAR(100),
   amount_paid DECIMAL(12,2),
+  payment_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   CONSTRAINT fk_policies_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
@@ -133,6 +134,7 @@ CREATE TABLE IF NOT EXISTS bulk_orders (
   group_id INT,
   payment_reference VARCHAR(100) UNIQUE,
   total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  payment_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
   status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'pending_payment', 'paid', 'processing', 'completed', 'partially_completed', 'failed')),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   paid_at DATETIME,
@@ -167,6 +169,7 @@ CREATE TABLE IF NOT EXISTS renewals (
   policy_id INT NOT NULL,
   processed_by_agent_id INT NOT NULL,
   amount_paid DECIMAL(12,2),
+  payment_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
   payment_reference VARCHAR(100),
   new_end_date DATE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

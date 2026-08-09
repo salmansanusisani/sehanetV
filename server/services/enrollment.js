@@ -60,7 +60,7 @@ function getCallbackUrl(req) {
 async function createEnrollmentRecord({
   userId, customerAccountId, existingCustomerId, firstName, lastName, phoneNumber,
   email, planCode, planName, location, gender, dateOfBirth, amountPaid,
-  paymentReference, resolvedGroupId, wellahealthResult,
+  paymentReference, resolvedGroupId, wellahealthResult, paymentFee = 0,
 }) {
   // Idempotency: if this payment reference already produced a policy, return
   // the existing one instead of creating a duplicate (relies on the UNIQUE
@@ -95,12 +95,13 @@ async function createEnrollmentRecord({
     const [policyResult] = await pool.execute(
       `INSERT INTO policies
         (customer_id, original_agent_id, customer_account_id, plan_code, plan_name, price_at_enrollment,
-         wellahealth_policy_number, status, start_date, end_date, payment_reference, amount_paid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         wellahealth_policy_number, status, start_date, end_date, payment_reference, amount_paid, payment_fee)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         customerId, userId || null, customerAccountId || null, planCode, planName || null, Number(amountPaid),
         wellahealthResult.policyNumber || null, wellahealthResult.status || "Active",
-        wellahealthResult.startDate || null, wellahealthResult.endDate || null, paymentReference, Number(amountPaid)
+        wellahealthResult.startDate || null, wellahealthResult.endDate || null, paymentReference, Number(amountPaid),
+        Number(paymentFee || 0),
       ]
     );
     policyId = policyResult.insertId;
@@ -148,7 +149,7 @@ async function createEnrollmentRecord({
  * commission tracking, and snapshot the renewal commission. Idempotent via
  * the UNIQUE index on renewals.payment_reference.
  */
-async function recordRenewal({ phoneNumber, planCode, amountPaid, paymentReference, processedByAgentId, wellahealthResult }) {
+async function recordRenewal({ phoneNumber, planCode, amountPaid, paymentReference, processedByAgentId, wellahealthResult, paymentFee = 0 }) {
   if (paymentReference) {
     const [existingRows] = await pool.execute(
       "SELECT id FROM renewals WHERE payment_reference = ? LIMIT 1",
@@ -177,9 +178,9 @@ async function recordRenewal({ phoneNumber, planCode, amountPaid, paymentReferen
   let renewalId;
   try {
     const [renewalResult] = await pool.execute(
-      `INSERT INTO renewals (policy_id, processed_by_agent_id, amount_paid, payment_reference, new_end_date)
-       VALUES (?, ?, ?, ?, ?)`,
-      [policy.id, processedByAgentId, amountPaid, paymentReference, wellahealthResult.endDate || null]
+      `INSERT INTO renewals (policy_id, processed_by_agent_id, amount_paid, payment_fee, payment_reference, new_end_date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [policy.id, processedByAgentId, amountPaid, Number(paymentFee || 0), paymentReference, wellahealthResult.endDate || null]
     );
     renewalId = renewalResult.insertId;
   } catch (err) {
@@ -312,6 +313,7 @@ async function processChargeSuccess(metadata, reference) {
       paymentReference: effectiveReference,
       resolvedGroupId: meta.groupId || null,
       wellahealthResult: whResult,
+      paymentFee: Number(meta.paymentFee || 0),
     });
     return { type, ...record };
   }
@@ -330,6 +332,7 @@ async function processChargeSuccess(metadata, reference) {
       paymentReference: effectiveReference,
       processedByAgentId: meta.userId,
       wellahealthResult: whResult,
+      paymentFee: Number(meta.paymentFee || 0),
     });
     return { type, ...result };
   }

@@ -1,247 +1,386 @@
-# SehaNet User Manual
+# SehaNet Full User Manual
 
-Welcome to SehaNet — this guide explains how to use the app, whatever your role. Find
-your section below and skip the rest; you don't need to read the whole manual, just the
-part that matches what you do.
+Welcome to SehaNet. This is the complete manual for the web app — it explains every tab
+and how everything works (enrolling, renewing, commissions, payouts) for each type of
+user. Find your role below and read the sections relevant to what you do.
 
-- [Getting Started](#getting-started)
-- [For Admins](#for-admins)
-- [For Ambassadors](#for-ambassadors)
-- [For Agents](#for-agents)
-- [Common Questions](#common-questions)
+- [Getting Started (all users)](#getting-started-all-users)
+- [How Commission Works](#how-commission-works)
+- [Administrator Manual](#administrator-manual)
+- [Ambassador Manual](#ambassador-manual)
+- [Agent Manual](#agent-manual)
+- [Customer Manual](#customer-manual)
 - [Troubleshooting](#troubleshooting)
 
 ---
 
-## Getting Started
+## Getting Started (all users)
 
-SehaNet has three types of accounts:
+SehaNet has four types of accounts:
 
-- **Admin** — runs the whole system: creates accounts, sets commission rates, approves
-  weekly payouts.
+- **Admin** — runs the whole system: creates accounts, sets commission rates, reviews
+  policies, approves weekly payouts.
 - **Ambassador** — enrolls and renews customers, and earns commission for it.
 - **Agent** — enrolls and renews customers too, but doesn't earn commission.
+- **Customer** — buys and manages their own health plan.
 
-You'll be given a username and password by your admin. There's no self-signup — if you
-don't have a login yet, ask your admin to create one for you.
+### Logging in
 
-**To log in:** enter your username and password on the first screen and tap **Log in**.
+Open SehaNet and enter the **username** and **password** your admin gave you, then click
+**Log in**. Customers who registered themselves log in with the username and password
+they created at sign-up.
 
-**To change your password:** tap the key icon at the top of the screen, enter your
-current password and a new one (at least 6 characters), and confirm.
+### Changing your password
 
-**If you're locked out:** contact your admin — they can reset your password for you at
-any time.
+Click the **key icon** at the top of the screen, enter your current password and a new
+one (at least 6 characters), type it again to confirm, and click **Update**.
+
+### Sessions and security
+
+- The app automatically signs you out after **2 minutes of inactivity**. You'll get a
+  warning first. This is a security feature, not a bug.
+- Always click **Log out** when you finish working.
+- Never share your password or customer data.
 
 ---
 
-## For Admins
+## How Commission Works
 
-### Creating an Agent or Ambassador
+SehaNet's money model is simple. When a customer pays for a plan:
 
-1. Go to **Agents & Ambassadors**.
-2. Fill in their name, phone, a username, and a password (you choose the password —
-   they can change it later themselves).
-3. Choose the role:
-   - **Agent** — no commission, no Groups.
-   - **Ambassador** — earns commission, must create a Group before enrolling.
-4. If they're an Ambassador, add their bank details (bank name and account number).
-   SehaNet checks the account number against the bank and shows you the real account
-   holder's name before saving — always check this matches who you think you're paying.
-5. Tap **Create**.
+1. The customer pays the **plan price**, plus a fixed **NGN 500 payment fee** at every
+   checkout — one fee per transaction, even for a bulk enrollment of many people.
+2. **WellaHealth's cut to admin** (the percentage set in Commission Settings) is the
+   share of the plan price that comes to the business. This is the admin's income from
+   the sale.
+3. An **Ambassador's commission** is a percentage of *that WellaHealth cut* — not a
+   percentage of the full customer payment. Different rates apply to new enrollments
+   and renewals.
 
-### Blocking, unblocking, and removing someone
+Example — one new enrollment of NGN 5,000, with a 20% WellaHealth cut and a 30%
+ambassador rate:
 
-- **Block** — use this for a temporary pause (e.g. investigating something). They can't
-  log in while blocked. You must give a reason. Unblock any time to restore access.
-- **Remove** — this is permanent. If you're removing an Ambassador, you can optionally
-  reassign their future commission to another active Ambassador — this only affects
-  renewals going forward; anything they already earned is untouched and still gets paid.
+- WellaHealth cut to admin: NGN 5,000 × 20% = **NGN 1,000**
+- Ambassador commission: NGN 1,000 × 30% = **NGN 300**
+- Admin net after expenses: NGN 1,000 + NGN 500 fee − NGN 300 = **NGN 1,200**
+
+Rates are snapshotted at the moment of sale. Changing Commission Settings only affects
+future activity — it never rewrites a commission that was already earned.
+
+---
+
+## Administrator Manual
+
+The admin can see every tab in the app. Here is what each one does.
+
+### Dashboard
+
+A live summary of the whole business:
+
+- **Payments recorded** — total money in from policies and renewals (plan prices plus
+  payment fees).
+- **Payment fees collected** — total NGN 500 fees charged across all checkouts.
+- **Admin net before expenses** — all recorded payments less ambassador commission owed.
+- **Admin net after expenses** — your actual income: the WellaHealth cut (plan payments
+  × the % in Commission Settings), plus payment fees, less ambassador commission owed.
+  See [How Commission Works](#how-commission-works).
+- **Ambassador commission owed / paid** — what ambassadors have earned and what has been
+  paid out. The gap is the outstanding balance.
+- **Customers / Active policies** — total customer records and currently-active policies.
+
+These figures are calculated from recorded data only; nothing here is typed in by hand.
+
+### Agents & Ambassadors
+
+**Creating an account.** Fill in the person's name, phone, username, and password (you
+choose it — they can change it later). Pick a role:
+
+- **Agent (unpaid)** — can enroll, look up, and renew customers, but earns no commission
+  and uses no Groups.
+- **Ambassador (paid)** — earns commission and works through Groups. When you select
+  Ambassador, bank fields appear.
+
+For an Ambassador, choose the **bank** and enter the **account number**. SehaNet
+verifies the account against the bank and shows the real account holder's name before
+saving — always confirm this matches the person you intend to pay.
+
+**Editing someone.** Click **Edit** to change their name, phone, or bank details, or to
+set a **personal commission rate** that overrides the default. Click **Save & Verify
+Bank** to re-check the account number before saving.
+
+**Blocking, unblocking, removing.**
+
+- **Block** — temporary pause. The user can't log in while blocked; a reason is
+  required. **Unblock** restores access any time.
+- **Remove** — permanent and cannot be undone. For an Ambassador you can optionally
+  **reassign future commissions** to another active Ambassador; this only affects
+  renewals going forward. Anything already earned is untouched and still gets paid.
+
+### Policies
+
+The full directory of every enrollment. **Search** by customer name or phone, or
+**filter by status** (Active, Cancelled, Expired). The list is paginated — use
+Previous/Next to move through results. Each row shows the customer, plan, WellaHealth
+policy number, amount paid, status, who enrolled them, and the policy end date.
+
+### Renewals Due
+
+Every policy across the whole system that expires within the next 14 days, soonest
+first. Rows due in 3 days or less are highlighted. Use the phone number link to call or
+SMS the customer and remind them to renew — reminders are still sent manually.
+
+### Groups
+
+A read-only view of every Group Ambassadors have created (which bank, market, school, or
+association each one covers). Groups are created by Ambassadors themselves, not by you.
 
 ### Commission Settings
 
-Under **Commission Settings**, you control three numbers:
+Three percentages control all money calculations:
 
-- **WellaHealth's cut to admin (%)** — what WellaHealth pays your business per plan.
-- **Ambassador rate — new enrollment (%)** — what an Ambassador earns from a new sign-up,
-  as a share of the WellaHealth cut above (not the full customer payment).
-- **Ambassador rate — renewal (%)** — same idea, for renewals.
+- **WellaHealth's cut to admin (%)** — the share of each plan payment that comes to your
+  business.
+- **Ambassador rate — new enrollment (%)** — what an Ambassador earns from a new
+  sign-up, as a share of the WellaHealth cut above.
+- **Ambassador rate — renewal (%)** — the same idea for renewals.
 
-Changing these only affects activity going forward — anything already calculated in a
-past payout stays as it was.
-
-You can also give one specific Ambassador a different rate than everyone else, from
-their profile.
+Click **Save Settings** when done. Changes only affect activity going forward. You can
+also override the rate for one specific Ambassador from their profile in Agents &
+Ambassadors.
 
 ### Weekly Payout
 
 This is where Ambassadors actually get paid.
 
-1. Go to **Weekly Payout**.
-2. Load the draft for the current week (or type in a specific week if you're catching up
-   on a past one).
-3. Review the numbers carefully — this shows exactly what each Ambassador is owed and
-   why (how many enrollments, how many renewals).
-4. When you're confident it's correct, tap **Approve & Pay**. This is the moment real
-   money leaves your account and goes to each Ambassador's bank account — there's no
-   undo after this, so double-check the total first.
-5. If any transfer fails (e.g. a bad account number), it's clearly marked — it won't
-   block the others from going through, and you can retry it once it's fixed.
-6. Past payouts are kept in **Payout History**, where you can also export any week as a
-   spreadsheet (CSV) for your own records.
+1. **Load a draft.** Click **Load / Create Draft** for the current week (leave the week
+   field blank), or type a specific week (e.g. 2026-W30) to catch up on a past one.
+2. **Review.** The draft lists each Ambassador, how many enrollments and renewals they
+   had, and the exact amount owed. Check these numbers carefully — this is the money
+   that will leave your account.
+3. **Approve & Pay.** Clicking this initiates real Paystack bank transfers to each
+   Ambassador's verified account. There is no undo, so double-check the total first.
+   A failed transfer (e.g. a bad account number) is clearly marked and doesn't block the
+   others; fix the account details and retry.
+4. **Payout History** keeps every past payout, and you can export any week as a CSV
+   spreadsheet.
+5. **Ambassador Payment Requests.** When an Ambassador requests a payment from My
+   Earnings, it appears here with their available balance. **Approve** to accept it,
+   **Reject** to decline (optionally leaving a note), or **Pay now** to send the money
+   immediately via Paystack. Only approve amounts you're sure about.
 
-### Groups
+### Enroll
 
-Admins can see every Group any Ambassador has created (which bank, market, school, etc.
-they're working), but Groups are created by Ambassadors themselves, not by you.
+Register a single customer exactly like an Agent would: fill in their details, pick a
+plan (the price plus the NGN 500 payment fee is shown), and click **Enroll**. The
+customer is taken to the secure Paystack checkout and, once payment succeeds, their
+WellaHealth policy is created automatically. The same phone number can never be enrolled
+twice.
+
+### Look Up
+
+Find any customer by **phone number** or **WellaHealth policy number**. Results show the
+full subscription details, including nested payment information.
+
+### Renew
+
+Renew any customer in the system: enter their phone number, choose a plan, and click
+**Renew**. They pay via the Paystack checkout (plan price + NGN 500 fee) and their
+policy end date is extended automatically.
+
+### Security notes
+
+Never share your password, Paystack keys, or customer data. Always confirm an
+Ambassador's bank details before approving a real transfer, and never pay a payout
+amount you haven't reviewed in the draft.
+
+---
+
+## Ambassador Manual
+
+As an Ambassador you enroll and renew customers and earn commission for it. Here is how
+each tab works.
+
+### Enroll
+
+**Create a Group first.** A **Group** represents the community you're working — a bank's
+staff, a market, a school, and so on. On the Enroll tab, give your Group a name (e.g.
+"GTBank Lagos Staff") and pick a type (Bank, Market, School, Association, or Other),
+then click **Create Group**. You only do this once per community; after that you pick it
+from the dropdown.
+
+**Enrolling one customer.**
+
+1. Pick the Group this customer belongs to (or create a new one).
+2. Fill in the customer's **first name, last name, phone number** (format 2348...),
+   email (optional), **location, gender, and date of birth**.
+3. Choose a plan from the cards. The summary shows the plan price plus the **NGN 500
+   payment fee** you'll collect.
+4. Click **Enroll** — the customer is taken to the secure Paystack checkout. When
+   payment succeeds, their WellaHealth policy is created automatically and you'll see
+   the confirmation.
+
+**You can't enroll the same phone number twice.** If someone is already a customer, use
+**Renew** instead.
+
+### Bulk Enroll
+
+For up to **20 people on the same plan** in one payment:
+
+1. Choose your **Group** and one **plan** for the whole batch.
+2. Click **Add person** to fill in each customer's details (a name, phone, location,
+   date of birth, and gender are required for every person).
+3. Click **Review & pay**. You'll see the total — all plan prices plus a single NGN 500
+   payment fee for the batch — and confirm.
+4. The batch opens in the secure Paystack checkout. Once paid, SehaNet creates each
+   customer's policy automatically.
+
+All phone numbers in a batch must be different, and none may already be enrolled.
 
 ### Renewals Due
 
-Shows every customer across the whole system whose plan is expiring soon, soonest first.
-Use this to know who needs a renewal reminder call or SMS — reminders are still sent
-manually for now.
+Your worklist: your own customers whose plans expire within the next 14 days, soonest
+first. Rows due in 3 days or less are highlighted. Call or message them to offer a
+renewal.
 
-### Searching Policies
+### Look Up
 
-Use the **Policies** tab to search by customer name or phone number, or filter by status,
-if you need to find one specific enrollment.
+Find any customer in the system by **phone number** or **policy number** — useful for
+checking a customer's plan before renewing them.
 
----
+### Renew
 
-## For Ambassadors
+You can renew **any** customer, not just ones you enrolled. Enter their phone number,
+choose a plan, and click **Renew**. They pay via the secure checkout (plan price + NGN
+500 fee) and their policy end date extends automatically.
 
-As an Ambassador, you do everything an Agent does, plus you earn commission — and there's
-one extra step: you work through a **Group**.
+### My Groups
 
-### What's a Group?
+A list of every Group you've created, with its type and when it was made.
 
-A Group represents who you're enrolling — a bank's staff, a market association, a school,
-etc. You pick a type (Bank, Market, School, Association, or Other) and give it a name,
-like "GTBank Lagos Staff" or "Sabon Gari Market Traders." Every customer you enroll
-afterward gets tagged with that Group.
+### My Earnings
 
-**To create one:** go to **Enroll**, and before filling in a customer's details, create
-your Group first (you only need to do this once per bank/market/school — after that, just
-pick it from the list for every new customer from that same place).
+Your money, in one place:
 
-### Enrolling a customer
+- **Available to request** — commission you've earned and can withdraw right now.
+- **Already paid** — what has been paid out to you.
+- **Lifetime commission** — everything you've ever earned, including amounts currently
+  sitting in a request.
 
-1. Go to **Enroll**.
-2. Pick the Group this customer belongs to (or create a new one if it's a new place
-   you're working).
-3. Fill in the customer's details: name, phone number, plan, amount paid, location,
-   gender, date of birth, and payment reference.
-4. Tap **Enroll**. If everything checks out, you'll see a confirmation with their new
-   WellaHealth policy number.
+**Requesting payment.** Enter an amount up to your available balance, optionally add a
+note, and click **Request payment**. Your admin reviews it in Weekly Payout; if
+approved, the money is sent to the bank account on file. Track the status of each
+request in **Request history** (Pending / Approved / Paid / Rejected).
 
-**Important:** you can't enroll the same phone number twice. If someone's already a
-customer, use **Renew** instead of trying to enroll them again.
+### Security notes
 
-### Looking someone up
-
-Go to **Look Up**, choose whether you have their phone number or policy number, and
-search. This works for any customer in the system, not just ones you personally enrolled.
-
-### Renewing a customer
-
-Go to **Renew**, enter their phone number, plan code, amount paid, and a payment
-reference. You can renew any customer — not just people you originally enrolled
-yourself.
-
-### Checking your earnings
-
-Go to **My Earnings** to see your total enrollments, total renewals, and an estimate of
-your lifetime commission. The actual amount you're paid each week comes from your admin's
-Weekly Payout process — this page is your own running estimate.
-
-### Your Groups
-
-Go to **My Groups** to see every Group you've created and when.
-
-### Your upcoming renewals
-
-Go to **Renewals Due** to see which of your own customers are expiring soon — this is
-your worklist for who to call or message about renewing.
+Keep your username and password private. You can only see your own customers and
+earnings — you cannot view another Ambassador's.
 
 ---
 
-## For Agents
+## Agent Manual
 
-As an Agent, you can enroll, look up, and renew customers exactly like an Ambassador —
-the only difference is you don't earn commission, and you don't use Groups.
+As an Agent you enroll, look up, and renew customers. You don't earn commission and you
+don't use Groups.
 
-### Enrolling a customer
+### Enroll
 
-Go to **Enroll**, fill in the customer's details (name, phone, plan, amount paid,
-location, gender, date of birth, payment reference), and tap **Enroll**. No Group
-selection needed — that's an Ambassador-only step.
+1. Fill in the customer's **first name, last name, phone number** (format 2348...),
+   email (optional), **location, gender, and date of birth**.
+2. Choose a plan from the cards. The summary shows the plan price plus the **NGN 500
+   payment fee** charged at checkout.
+3. Click **Enroll** — the customer is taken to the secure Paystack checkout. When
+   payment succeeds, their WellaHealth policy is created automatically.
 
-### Looking someone up
+**You can't enroll the same phone number twice.** If someone is already a customer, use
+**Renew** instead.
 
-Go to **Look Up**, search by phone number or policy number.
+### Renewals Due
 
-### Renewing a customer
+Your worklist: customers you enrolled whose plans expire within the next 14 days, soonest
+first. Rows due in 3 days or less are highlighted. Contact them to offer a renewal.
 
-Go to **Renew**, enter their phone number, plan code, amount paid, and payment reference.
-Like Ambassadors, you can renew anyone in the system, not just people you personally
-enrolled.
+### Look Up
 
-### Your enrollment history
+Find any customer by **phone number** or **WellaHealth policy number** — handy before
+renewing someone.
 
-Go to **My Enrollments** to see everyone you've personally signed up and their current
-status.
+### Renew
+
+You can renew **any** customer in the system. Enter their phone number, choose a plan,
+and click **Renew**. They pay via the secure checkout (plan price + NGN 500 fee) and
+their policy end date extends automatically.
+
+### My Enrollments
+
+Everyone you've personally signed up, with their current status (Active, Cancelled,
+Expired, etc.) and when they were enrolled. Use this for follow-up.
+
+### Security notes
+
+Keep your username and password private. You only see your own enrollment records.
 
 ---
 
-## Common Questions
+## Customer Manual
 
-**Can I enroll the same person twice?**
-No — SehaNet blocks it to prevent accidentally double-charging WellaHealth for the same
-customer. If they're already enrolled, use Renew instead.
+SehaNet is how you buy and manage your WellaHealth plan.
 
-**Can any Agent or Ambassador renew any customer?**
-Yes — renewals aren't limited to whoever originally enrolled that customer. Anyone with
-an active account can process a renewal for anyone.
+### My Plan
 
-**I'm an Ambassador — why do I need a Group before I can enroll someone?**
-It's how SehaNet tracks which community/market/bank each customer came through, and it's
-required before your first enrollment from a new place. After that, just reuse the same
-Group for anyone else from that same place.
+Your current policy: the plan you're on, its status, and when it was created. If your
+policy is active, you're covered — keep an eye on the end date so you can renew before
+it expires.
 
-**What happens to my customers if I'm removed from the system?**
-Your past enrollments and the commission you already earned from them are untouched.
-Going forward, your admin decides whether someone else takes over crediting for renewals
-on your old customers.
+### Enroll
 
-**Why don't Agents earn commission?**
-That's simply how the two roles are set up — Agent is the unpaid tier, Ambassador is the
-paid tier. If this should change for you, that's a conversation with your admin, not
-something changeable in the app.
+Buy a health plan:
+
+1. Fill in your details (your phone number must match the one on your account).
+2. Choose a plan. The summary shows the plan price plus the **NGN 500 payment fee**
+   added at checkout.
+3. Click **Enroll** — you're taken to the secure Paystack checkout to pay by card.
+
+Once payment succeeds, your policy is created automatically. Your phone number can only
+be enrolled once.
+
+### Plan Expiry
+
+Shows when your plan is due to expire (within the next 14 days), so you know when to
+renew and avoid a gap in cover.
+
+### Security notes
+
+Keep your username and password private. If you think your account has been used without
+permission, tell your admin immediately.
 
 ---
 
 ## Troubleshooting
 
 **"This phone number is already enrolled"**
-Someone (possibly you, possibly someone else) already enrolled this customer. Use Renew
-instead of Enroll.
+Someone already enrolled this customer. Use Renew instead of Enroll.
 
 **"Your account has been blocked. Contact the admin."**
-Your admin has temporarily paused your account. Reach out to them directly — this isn't
-something you can undo yourself.
+Your admin has temporarily paused your account. Reach out to them directly.
 
-**"groupId is required"** (Ambassadors only)
+**"groupId is required" (Ambassadors only)**
 You tried to enroll someone without picking a Group first. Go back and either select an
 existing Group or create a new one.
 
 **"Current password is incorrect"**
-You mistyped your current password while trying to change it. If you've genuinely
-forgotten it, ask your admin to reset it for you.
+You mistyped your current password while changing it. If you've genuinely forgotten it,
+ask your admin to reset it.
 
 **An enrollment or renewal fails with an unfamiliar error**
 This usually means WellaHealth itself rejected the request (bad plan code, invalid data,
-etc.) rather than a SehaNet problem. Double check the details you entered match exactly
-(especially the plan code), and try again. If it keeps failing, contact your admin.
+etc.). Double-check the details you entered match exactly, and try again. If it keeps
+failing, contact your admin.
+
+**I was charged, but the plan doesn't show up**
+Payments are confirmed automatically by the payment webhook. If the confirmation page
+says the payment was recorded, give it a minute and check again. If it still doesn't
+appear, contact your admin with the payment reference.
 
 **Nothing loads / the screen stays blank**
 Check your internet connection first. If that's fine, try logging out and back in. If it

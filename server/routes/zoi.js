@@ -9,6 +9,7 @@ const {
   recordRenewal,
   processBulkOrder,
 } = require("../services/enrollment");
+const { PAYMENT_FEE_NAIRA } = require("../config");
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.post("/subscriptions", async (req, res) => {
       const reference = paymentReference || `enroll-${Date.now()}-${req.user.id}`;
       const paymentInit = await paystack.initializeTransaction({
         email: email || "customer@example.com",
-        amountNaira: amountPaid,
+        amountNaira: amountPaid + PAYMENT_FEE_NAIRA,
         reference,
         callbackUrl: getCallbackUrl(req),
         metadata: {
@@ -102,6 +103,7 @@ router.post("/subscriptions", async (req, res) => {
           type: "enrollment",
           email: email || "customer@example.com",
           amountPaid,
+          paymentFee: PAYMENT_FEE_NAIRA,
           paymentReference: reference,
           firstName,
           lastName,
@@ -121,6 +123,7 @@ router.post("/subscriptions", async (req, res) => {
         authorizationUrl: paymentInit.authorizationUrl,
         accessCode: paymentInit.accessCode,
         reference,
+        paymentFee: PAYMENT_FEE_NAIRA,
       });
     }
 
@@ -165,6 +168,7 @@ router.post("/subscriptions", async (req, res) => {
       paymentReference,
       resolvedGroupId,
       wellahealthResult: whResult,
+      paymentFee: PAYMENT_FEE_NAIRA,
     });
 
     res.status(201).json({
@@ -203,7 +207,7 @@ router.post("/bulk-orders", async (req, res) => {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      const [orderResult] = await connection.execute("INSERT INTO bulk_orders (ambassador_id, group_id, total_amount, status) VALUES (?, ?, ?, 'pending_payment')", [req.user.id, groupId, total]);
+      const [orderResult] = await connection.execute("INSERT INTO bulk_orders (ambassador_id, group_id, total_amount, payment_fee, status) VALUES (?, ?, ?, ?, 'pending_payment')", [req.user.id, groupId, total, PAYMENT_FEE_NAIRA]);
       for (const c of customers) {
         await connection.execute(
           `INSERT INTO bulk_order_items (bulk_order_id, first_name, last_name, phone, email, plan_code, plan_name, location, gender, date_of_birth, amount)
@@ -214,8 +218,8 @@ router.post("/bulk-orders", async (req, res) => {
       const reference = `bulk-${orderResult.insertId}-${Date.now()}`;
       await connection.execute("UPDATE bulk_orders SET payment_reference = ? WHERE id = ?", [reference, orderResult.insertId]);
       await connection.commit();
-      const payment = await paystack.initializeTransaction({ email: customers.find((c) => c.email)?.email || "customer@example.com", amountNaira: total, reference, callbackUrl: getCallbackUrl(req), metadata: { type: "bulk_enrollment", bulkOrderId: orderResult.insertId } });
-      res.json({ paymentRequired: true, authorizationUrl: payment.authorizationUrl, reference, total, customerCount: customers.length });
+      const payment = await paystack.initializeTransaction({ email: customers.find((c) => c.email)?.email || "customer@example.com", amountNaira: total + PAYMENT_FEE_NAIRA, reference, callbackUrl: getCallbackUrl(req), metadata: { type: "bulk_enrollment", bulkOrderId: orderResult.insertId, paymentFee: PAYMENT_FEE_NAIRA } });
+      res.json({ paymentRequired: true, authorizationUrl: payment.authorizationUrl, reference, total: total + PAYMENT_FEE_NAIRA, paymentFee: PAYMENT_FEE_NAIRA, customerCount: customers.length });
     } catch (err) { await connection.rollback(); throw err; } finally { connection.release(); }
   } catch (err) {
     console.error("Bulk order creation failed:", err);
@@ -237,7 +241,7 @@ router.post("/subscriptions/renewals", async (req, res) => {
       const reference = paymentReference || `renew-${Date.now()}-${req.user.id}`;
       const paymentInit = await paystack.initializeTransaction({
         email: "customer@example.com",
-        amountNaira: amountPaid,
+        amountNaira: amountPaid + PAYMENT_FEE_NAIRA,
         reference,
         callbackUrl: getCallbackUrl(req),
         metadata: {
@@ -245,6 +249,7 @@ router.post("/subscriptions/renewals", async (req, res) => {
           type: "renewal",
           email: "customer@example.com",
           amountPaid,
+          paymentFee: PAYMENT_FEE_NAIRA,
           paymentReference: reference,
           phoneNumber,
           planCode,
@@ -257,6 +262,7 @@ router.post("/subscriptions/renewals", async (req, res) => {
         authorizationUrl: paymentInit.authorizationUrl,
         accessCode: paymentInit.accessCode,
         reference,
+        paymentFee: PAYMENT_FEE_NAIRA,
       });
     }
 
@@ -274,6 +280,7 @@ router.post("/subscriptions/renewals", async (req, res) => {
       paymentReference,
       processedByAgentId: req.user.id,
       wellahealthResult: whResult,
+      paymentFee: PAYMENT_FEE_NAIRA,
     });
 
     res.status(200).json({ wellahealth: whResult, renewal_id: result.renewalId, warning: result.warning });

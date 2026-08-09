@@ -1,5 +1,9 @@
 const API_BASE = "/api";
 
+// Keep in sync with PAYMENT_FEE_NAIRA in server/config.js — the backend is
+// the source of truth for what is actually charged at checkout.
+const PAYMENT_FEE_NAIRA = 500;
+
 let state = {
   token: localStorage.getItem("sehanet_token") || null,
   user: null,
@@ -97,28 +101,30 @@ document.getElementById("showLoginBtn").addEventListener("click", () => {
   document.getElementById("registerCard").classList.add("hidden");
   document.querySelector("#loginScreen .login-card").classList.remove("hidden");
 });
-document.getElementById("registerBtn").addEventListener("click", async () => {
-  const errEl = document.getElementById("registerError");
-  errEl.textContent = "";
-  const payload = {
-    fullName: document.getElementById("reg-fullName").value.trim(),
-    phone: document.getElementById("reg-phone").value.trim(),
-    email: document.getElementById("reg-email").value.trim(),
-    location: document.getElementById("reg-location").value.trim(),
-    dateOfBirth: document.getElementById("reg-dob").value,
-    gender: document.getElementById("reg-gender").value,
-    username: document.getElementById("reg-username").value.trim(),
-    password: document.getElementById("reg-password").value,
-  };
-  try {
-    const data = await api("/auth/register", { method: "POST", body: JSON.stringify(payload) });
-    state.token = data.token;
-    state.user = data.user;
-    localStorage.setItem("sehanet_token", data.token);
-    boot();
-  } catch (err) {
-    errEl.textContent = err.data?.error || "Unable to create your account. Please try again.";
-  }
+document.getElementById("registerBtn").addEventListener("click", () => {
+  runWithLoading(document.getElementById("registerBtn"), "Creating account…", async () => {
+    const errEl = document.getElementById("registerError");
+    errEl.textContent = "";
+    const payload = {
+      fullName: document.getElementById("reg-fullName").value.trim(),
+      phone: document.getElementById("reg-phone").value.trim(),
+      email: document.getElementById("reg-email").value.trim(),
+      location: document.getElementById("reg-location").value.trim(),
+      dateOfBirth: document.getElementById("reg-dob").value,
+      gender: document.getElementById("reg-gender").value,
+      username: document.getElementById("reg-username").value.trim(),
+      password: document.getElementById("reg-password").value,
+    };
+    try {
+      const data = await api("/auth/register", { method: "POST", body: JSON.stringify(payload) });
+      state.token = data.token;
+      state.user = data.user;
+      localStorage.setItem("sehanet_token", data.token);
+      boot();
+    } catch (err) {
+      errEl.textContent = err.data?.error || "Unable to create your account. Please try again.";
+    }
+  });
 });
 
 async function login() {
@@ -130,15 +136,17 @@ async function login() {
     errEl.textContent = "Enter a username and password.";
     return;
   }
-  try {
-    const data = await api("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
-    state.token = data.token;
-    state.user = data.user;
-    localStorage.setItem("sehanet_token", data.token);
-    boot();
-  } catch (err) {
-    errEl.textContent = err.data?.error || "Login failed.";
-  }
+  await runWithLoading(document.getElementById("loginBtn"), "Signing in…", async () => {
+    try {
+      const data = await api("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) });
+      state.token = data.token;
+      state.user = data.user;
+      localStorage.setItem("sehanet_token", data.token);
+      boot();
+    } catch (err) {
+      errEl.textContent = err.data?.error || "Login failed.";
+    }
+  });
 }
 
 document.getElementById("logoutBtn").addEventListener("click", doLogout);
@@ -280,6 +288,20 @@ function renderError(container, err, customMsg = null) {
   `;
 }
 
+// Runs `fn` while showing a spinner + busy label on the button, then restores it.
+// Returns a promise that resolves with fn's result (or rejects with fn's error).
+async function runWithLoading(button, busyLabel, fn) {
+  const originalHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span> ${busyLabel}`;
+  try {
+    return await fn();
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalHtml;
+  }
+}
+
 // Self-service password change modal setup (Prompt 5.4)
 function setupPasswordModal() {
   const openBtn = document.getElementById("changePasswordBtn");
@@ -304,7 +326,7 @@ function setupPasswordModal() {
     if (e.target === modal) modal.classList.add("hidden");
   });
 
-  submitBtn.addEventListener("click", async () => {
+  submitBtn.addEventListener("click", () => {
     const currentPassword = document.getElementById("pwd-current").value;
     const newPassword = document.getElementById("pwd-new").value;
     const confirmPassword = document.getElementById("pwd-confirm").value;
@@ -326,23 +348,25 @@ function setupPasswordModal() {
       return;
     }
 
-    try {
-      await api("/me/password", {
-        method: "POST",
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      outputEl.innerHTML = `<div class="alert-success">✔ Password updated successfully!</div>`;
-      setTimeout(() => modal.classList.add("hidden"), 1500);
-    } catch (err) {
-      renderError(outputEl, err);
-    }
+    runWithLoading(submitBtn, "Updating…", async () => {
+      try {
+        await api("/me/password", {
+          method: "POST",
+          body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        outputEl.innerHTML = `<div class="alert-success">✔ Password updated successfully!</div>`;
+        setTimeout(() => modal.classList.add("hidden"), 1500);
+      } catch (err) {
+        renderError(outputEl, err);
+      }
+    });
   });
 }
 
 // ---------- Onboarding tour (Phase 7) ----------
 const TOUR_STEPS_BY_ROLE = {
   admin: [
-    { tab: "dashboard", desc: "See customer payments, your net before expenses, active policies, and ambassador commission totals." },
+    { tab: "dashboard", desc: "See customer payments (including the NGN 500 payment fee), your net before and after expenses, active policies, and ambassador commission totals." },
     { tab: "team", desc: "Create and manage agents and ambassadors. Confirm bank details before approving a payment." },
     { tab: "policies", desc: "Search all customer records by name, phone, or email for follow-up." },
     { tab: "payout", desc: "Review ambassador payment requests, approve them, then use Pay now only when ready to send a real bank transfer." },
@@ -579,14 +603,16 @@ async function renderAdminDashboard() {
       </div>`;
     content.innerHTML = `
       <div class="stat-grid">
-        ${stat("wallet", "Payments recorded", money(d.revenue), "tone-teal", `${d.policyCount} policies`)}
+        ${stat("wallet", "Payments recorded", money(d.revenue), "tone-teal", `${d.policyCount} policies · ${d.renewalCount} renewals`)}
+        ${stat("coins", "Payment fees collected", money(d.paymentFees), "", "NGN 500 per payment")}
         ${stat("piggy-bank", "Admin net before expenses", money(d.adminNetBeforeExpenses), "tone-gold", "Payments less commission")}
+        ${stat("trending-up", "Admin net after expenses", money(d.adminNetAfterExpenses), "", `Your ${d.wellahealthPercent}% WellaHealth cut (${money(d.wellahealthCut)}) + fees, less commission`)}
         ${stat("trending-up", "Ambassador commission owed", money(d.ambassadorOutstanding), "", `${d.customerCount} customers`)}
         ${stat("check-circle-2", "Ambassador commission paid", money(d.ambassadorPaid), "")}
         ${stat("users", "Customers", d.customerCount, "")}
         ${stat("shield-check", "Active policies", d.activePolicies, "")}
       </div>
-      <div class="card note-card"><div class="muted">“Admin net before expenses” is recorded customer payments less ambassador commission. Confirm WellaHealth settlement and operating expenses separately.</div></div>
+      <div class="card note-card"><div class="muted">“Admin net before expenses” is recorded customer payments (including the NGN 500 payment fee) less ambassador commission. “Admin net after expenses” is the admin’s actual income: your ${d.wellahealthPercent}% WellaHealth cut of plan payments, plus payment fees, less ambassador commission owed.</div></div>
     `;
     if (window.lucide) window.lucide.createIcons();
   } catch (err) { renderError(content, err); }
@@ -609,24 +635,89 @@ function out(id, data) {
     return;
   }
 
-  const details = [];
-  const friendlyFields = [
-    ["policyNumber", "Policy number"], ["policy_number", "Policy number"],
-    ["status", "Status"], ["planName", "Plan"], ["plan_name", "Plan"],
-    ["endDate", "Expires"], ["end_date", "Expires"], ["fullName", "Customer"],
-    ["full_name", "Customer"], ["phoneNumber", "Phone"], ["phone", "Phone"],
-  ];
-  friendlyFields.forEach(([key, label]) => {
-    if (data?.[key] !== undefined && data[key] !== null && data[key] !== "") {
-      details.push(`<div><span>${label}</span><strong>${data[key]}</strong></div>`);
-    }
-  });
+  const skipKeys = ["message", "paymentRequired", "authorizationUrl", "success", "redirect_url", "reference"];
+  const body = buildResultRows(data, skipKeys);
+  const heading = data?.message || "Completed successfully";
+
   el.innerHTML = `
     <div class="result-card">
       <div class="result-card-icon">✓</div>
-      <div><strong>${data?.message || "Completed successfully"}</strong>${details.length ? `<div class="result-details">${details.join("")}</div>` : ""}</div>
+      <div class="result-card-body">
+        <strong>${heading}</strong>
+        ${body ? body : `<div class="muted">No details returned.</div>`}
+      </div>
     </div>
   `;
+}
+
+// Convert a key like "policy_number" or "planCode" into "Policy Number"
+function prettyLabel(key) {
+  return String(key)
+    .replace(/^_+|_+$/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Human-friendly rendering of a scalar value
+function resultValueHtml(v) {
+  if (v === null || v === undefined || v === "") return `<span class="muted">—</span>`;
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "number") return v.toLocaleString();
+  if (typeof v === "string" && /\d{4}-\d{2}-\d{2}(T|\s)/.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d)) {
+      const hasTime = v.includes("T") || v.trim().length > 10;
+      const date = d.toLocaleDateString();
+      if (!hasTime) return date;
+      const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return `${date} ${time}`;
+    }
+  }
+  return String(v);
+}
+
+function isScalar(v) {
+  return v === null || v === undefined || typeof v !== "object";
+}
+
+// Build a definition-list of scalar fields plus <details> blocks for nested objects/arrays
+function buildResultRows(data, skipKeys = []) {
+  if (!data || typeof data !== "object") {
+    return `<div class="result-details"><div><span>Value</span><strong>${resultValueHtml(data)}</strong></div></div>`;
+  }
+  const scalars = [];
+  const nested = [];
+  for (const [key, val] of Object.entries(data)) {
+    if (skipKeys.includes(key)) continue;
+    if (isScalar(val)) scalars.push([key, val]);
+    else nested.push([key, val]);
+  }
+  let html = "";
+  if (scalars.length) {
+    html += `<div class="result-details">${scalars
+      .map(([k, v]) => `<div><span>${prettyLabel(k)}</span><strong>${resultValueHtml(v)}</strong></div>`)
+      .join("")}</div>`;
+  }
+  for (const [key, val] of nested) {
+    html += `<details class="result-nested"><summary>${prettyLabel(key)}</summary>${nestResultHtml(val)}</details>`;
+  }
+  return html;
+}
+
+function nestResultHtml(val) {
+  if (Array.isArray(val)) {
+    if (val.length === 0) return `<div class="muted">None</div>`;
+    return val
+      .map(
+        (item, i) =>
+          isScalar(item)
+            ? `<div class="result-row"><span>${i + 1}</span><strong>${resultValueHtml(item)}</strong></div>`
+            : `<details class="result-nested"><summary>Item ${i + 1}</summary>${buildResultRows(item)}</details>`
+      )
+      .join("");
+  }
+  return buildResultRows(val);
 }
 
 function normalizePlans(data) {
@@ -647,6 +738,148 @@ function getPlanMeta(plan) {
   const price = plan?.price || plan?.amount || plan?.premium || plan?.priceAmount || plan?.monthlyPrice || "";
   const description = plan?.description || plan?.details || plan?.summary || plan?.benefits || "";
   return { code, name, price, description };
+}
+
+function esc(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+function firstDefined(obj, keys) {
+  if (!obj || typeof obj !== "object") return "";
+  for (const k of keys) {
+    const v = obj[k];
+    if (v !== undefined && v !== null && v !== "") return v;
+  }
+  return "";
+}
+
+function splitList(v) {
+  if (Array.isArray(v)) {
+    return v
+      .map((x) => (typeof x === "object" && x !== null ? Object.values(x).filter((y) => typeof y === "string").join(" — ") : String(x)))
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (typeof v === "string") return v.split(/\s*[,\n;•|]\s*/).map((s) => s.trim()).filter(Boolean);
+  if (v && typeof v === "object") {
+    return Object.entries(v).map(([k, val]) => `${String(k).replace(/_/g, " ")}: ${val}`);
+  }
+  return [];
+}
+
+function formatDuration(d) {
+  const s = String(d);
+  const num = Number(d);
+  if (!Number.isNaN(num) && String(d).trim() !== "") return num === 1 ? "1 month" : `${num} months`;
+  return s;
+}
+
+function formatDependants(d) {
+  const s = String(d).trim().toLowerCase();
+  if (s === "true") return "Dependants included";
+  if (s === "false" || s === "0") return "";
+  const num = Number(d);
+  if (!Number.isNaN(num) && num > 0) return num === 1 ? "1 dependant" : `${num} dependants`;
+  return String(d).trim();
+}
+
+function normalizePaymentPlans(pp) {
+  if (!pp) return [];
+  const fromItem = (item) => {
+    if (typeof item === "string") return { label: item };
+    if (item && typeof item === "object") {
+      const label = firstDefined(item, ["duration", "period", "name", "title", "plan", "frequency", "description"]);
+      const price = Number(firstDefined(item, ["price", "amount", "cost", "value"]));
+      return { label: label ? String(label) : "", price: Number.isNaN(price) ? 0 : price };
+    }
+    return { label: String(item) };
+  };
+  if (Array.isArray(pp)) return pp.map(fromItem);
+  if (typeof pp === "object") {
+    return Object.entries(pp).map(([k, v]) => {
+      if (v && typeof v === "object") return fromItem({ ...v, title: firstDefined(v, ["duration", "period", "name", "title"]) || k });
+      const price = Number(v);
+      return { label: k, price: Number.isNaN(price) ? 0 : price };
+    });
+  }
+  return [];
+}
+
+function planCardMeta(plan) {
+  const { code, name, price, description } = getPlanMeta(plan);
+  const n = Number(price);
+  const priceText =
+    price !== undefined && price !== null && price !== "" && !Number.isNaN(n) && n > 0
+      ? `NGN ${n.toLocaleString()}`
+      : "";
+  const duration = formatDuration(firstDefined(plan, ["duration", "durationMonths", "durationInMonths", "validity", "validityMonths", "coveragePeriod", "months", "tenure", "planDuration", "coverDuration", "period"]));
+  const dependants = formatDependants(firstDefined(plan, ["dependants", "dependantsAllowed", "maxDependants", "dependents", "numberOfDependants", "dependant", "dependent", "includeDependants"]));
+  const desc = Array.isArray(description) ? description.join(", ") : String(description || "");
+  const benefits = splitList(firstDefined(plan, ["benefits", "benefitList", "benefitsList", "inclusions", "features", "planBenefits", "cover", "coverage", "covers"]));
+  const paymentPlans = firstDefined(plan, ["paymentPlans", "payment_plans", "paymentOptions", "payment_options", "pricingOptions", "installments", "pricing"]);
+  return { code, name, price: priceText, desc, duration, dependants, benefits, paymentPlans };
+}
+
+// Renders plans as selectable cards. `onSelect(plan, card)` fires when a card is picked.
+function renderPlanCards(container, plans, opts = {}) {
+  if (!container) return;
+  if (!plans.length) {
+    container.innerHTML = `<div class="muted">${opts.emptyText || "No plans available right now."}</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="plan-grid">${plans
+    .map((plan, i) => {
+      const meta = planCardMeta(plan);
+      const tags = [meta.code, meta.duration, meta.dependants].filter(Boolean).map((t) => `<span class="plan-tag">${esc(t)}</span>`).join("");
+      const benefits = meta.benefits.length
+        ? `<span class="plan-benefits"><span class="plan-benefits-title">What’s covered</span>${meta.benefits
+            .slice(0, 12)
+            .map((b) => `<span class="plan-benefit"><i data-lucide="check"></i>${esc(b)}</span>`)
+            .join("")}${meta.benefits.length > 12 ? `<span class="plan-benefit-more">+ ${meta.benefits.length - 12} more</span>` : ""}</span>`
+        : "";
+      const payments = normalizePaymentPlans(meta.paymentPlans);
+      const paymentsHtml = payments.length
+        ? `<span class="plan-payments"><span class="plan-benefits-title">Payment options</span><span class="plan-pay-chips">${payments
+            .map((p) => `<span class="plan-pay-chip">${esc(p.label)}${p.price > 0 ? ` · NGN ${p.price.toLocaleString()}` : ""}</span>`)
+            .join("")}</span></span>`
+        : "";
+      return `
+        <button type="button" class="plan-card" data-index="${i}" aria-pressed="false">
+          <span class="plan-card-check"><i data-lucide="check"></i></span>
+          <span class="plan-card-top">
+            <span class="plan-card-title">${esc(meta.name)}</span>
+            ${meta.price ? `<span class="plan-card-price">${meta.price}</span>` : ""}
+          </span>
+          ${tags ? `<span class="plan-card-tags">${tags}</span>` : ""}
+          ${meta.desc ? `<span class="plan-card-desc">${esc(meta.desc)}</span>` : ""}
+          ${benefits}
+          ${paymentsHtml}
+        </button>`;
+    })
+    .join("")}</div>`;
+  if (window.lucide) window.lucide.createIcons();
+
+  container.querySelectorAll(".plan-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      container.querySelectorAll(".plan-card").forEach((c) => {
+        const isSel = c === card;
+        c.classList.toggle("selected", isSel);
+        c.setAttribute("aria-pressed", isSel ? "true" : "false");
+      });
+      if (opts.onSelect) opts.onSelect(plans[Number(card.dataset.index)], card);
+    });
+  });
+}
+
+function clearPlanSelection(containerId, summaryId) {
+  document.querySelectorAll(`#${containerId} .plan-card.selected`).forEach((c) => {
+    c.classList.remove("selected");
+    c.setAttribute("aria-pressed", "false");
+  });
+  const summary = document.getElementById(summaryId);
+  if (summary) summary.innerHTML = `Select a plan to continue.`;
 }
 
 function clearFields(ids) {
@@ -791,36 +1024,37 @@ async function renderTeamView() {
   if (bankCodeSelect) bankCodeSelect.innerHTML = optionsHtml || `<option value="">Unable to load banks</option>`;
   if (editBankSelect) editBankSelect.innerHTML = optionsHtml || `<option value="">Unable to load banks</option>`;
 
-  document.getElementById("nu-submit").addEventListener("click", async () => {
-    const outputEl = document.getElementById("nu-output");
-    outputEl.innerHTML = "";
-    const payload = {
-      name: document.getElementById("nu-name").value,
-      phone: document.getElementById("nu-phone").value,
-      username: document.getElementById("nu-username").value,
-      password: document.getElementById("nu-password").value,
-      role: document.getElementById("nu-role").value,
-      bank_code: document.getElementById("nu-bank-code").value || undefined,
-      bank_account_number: document.getElementById("nu-bank-account").value || undefined,
-    };
-    try {
-      await api("/admin/users", { method: "POST", body: JSON.stringify(payload) });
-      outputEl.innerHTML = `<div class="alert-success">✔ User created successfully!</div>`;
-      clearFields(["nu-name", "nu-phone", "nu-username", "nu-password", "nu-role", "nu-bank-code", "nu-bank-account"]);
-      loadTeamList();
-    } catch (err) {
-      renderError(outputEl, err);
-    }
+  document.getElementById("nu-submit").addEventListener("click", () => {
+    runWithLoading(document.getElementById("nu-submit"), "Creating…", async () => {
+      const outputEl = document.getElementById("nu-output");
+      outputEl.innerHTML = "";
+      const payload = {
+        name: document.getElementById("nu-name").value,
+        phone: document.getElementById("nu-phone").value,
+        username: document.getElementById("nu-username").value,
+        password: document.getElementById("nu-password").value,
+        role: document.getElementById("nu-role").value,
+        bank_code: document.getElementById("nu-bank-code").value || undefined,
+        bank_account_number: document.getElementById("nu-bank-account").value || undefined,
+      };
+      try {
+        await api("/admin/users", { method: "POST", body: JSON.stringify(payload) });
+        outputEl.innerHTML = `<div class="alert-success">✔ User created successfully!</div>`;
+        clearFields(["nu-name", "nu-phone", "nu-username", "nu-password", "nu-role", "nu-bank-code", "nu-bank-account"]);
+        loadTeamList();
+      } catch (err) {
+        renderError(outputEl, err);
+      }
+    });
   });
 
   document.getElementById("eu-cancel").addEventListener("click", () => {
     document.getElementById("edit-user-card").classList.add("hidden");
   });
 
-  document.getElementById("eu-submit").addEventListener("click", async () => {
+  document.getElementById("eu-submit").addEventListener("click", () => {
     const userId = document.getElementById("eu-id").value;
     const outputEl = document.getElementById("eu-output");
-    outputEl.innerHTML = `<div class="muted">Saving &amp; verifying bank account with Paystack…</div>`;
 
     const payload = {
       name: document.getElementById("eu-name").value,
@@ -834,25 +1068,28 @@ async function renderTeamView() {
     if (newRate !== "") payload.commission_rate_new = parseFloat(newRate);
     if (renewalRate !== "") payload.commission_rate_renewal = parseFloat(renewalRate);
 
-    try {
-      await api(`/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) });
-      const updatedUserList = await api("/admin/users");
-      const updatedUser = updatedUserList.find((u) => String(u.id) === String(userId));
-      
-      const verifiedName = updatedUser?.bank_account_name || "";
-      outputEl.innerHTML = `<div class="alert-success">✔ Profile updated successfully! ${
-        verifiedName ? `Verified Account Name: <strong>${verifiedName}</strong>` : ""
-      }</div>`;
+    runWithLoading(document.getElementById("eu-submit"), "Saving…", async () => {
+      outputEl.innerHTML = `<div class="muted">Saving &amp; verifying bank account with Paystack…</div>`;
+      try {
+        await api(`/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(payload) });
+        const updatedUserList = await api("/admin/users");
+        const updatedUser = updatedUserList.find((u) => String(u.id) === String(userId));
 
-      if (updatedUser) {
-        document.getElementById("eu-bank-name-display").innerHTML = verifiedName
-          ? `Verified Account Name: <strong>${verifiedName}</strong>`
-          : "";
+        const verifiedName = updatedUser?.bank_account_name || "";
+        outputEl.innerHTML = `<div class="alert-success">✔ Profile updated successfully! ${
+          verifiedName ? `Verified Account Name: <strong>${verifiedName}</strong>` : ""
+        }</div>`;
+
+        if (updatedUser) {
+          document.getElementById("eu-bank-name-display").innerHTML = verifiedName
+            ? `Verified Account Name: <strong>${verifiedName}</strong>`
+            : "";
+        }
+        loadTeamList();
+      } catch (err) {
+        renderError(outputEl, err);
       }
-      loadTeamList();
-    } catch (err) {
-      renderError(outputEl, err);
-    }
+    });
   });
 
   await loadTeamList();
@@ -1277,22 +1514,24 @@ async function renderSettingsView() {
       <div style="margin-top:12px"><button class="primary" id="s-save">Save Settings</button></div>
       <div id="s-output" style="margin-top:10px;"></div>
     `;
-    document.getElementById("s-save").addEventListener("click", async () => {
+    document.getElementById("s-save").addEventListener("click", () => {
       const outputEl = document.getElementById("s-output");
       outputEl.innerHTML = "";
-      try {
-        await api("/admin/settings", {
-          method: "PUT",
-          body: JSON.stringify({
-            wellahealth_commission_percent: document.getElementById("s-wh").value,
-            ambassador_new_percent: document.getElementById("s-new").value,
-            ambassador_renewal_percent: document.getElementById("s-renewal").value,
-          }),
-        });
-        outputEl.innerHTML = `<div class="alert-success">✔ Settings saved successfully!</div>`;
-      } catch (err) {
-        renderError(outputEl, err);
-      }
+      runWithLoading(document.getElementById("s-save"), "Saving…", async () => {
+        try {
+          await api("/admin/settings", {
+            method: "PUT",
+            body: JSON.stringify({
+              wellahealth_commission_percent: document.getElementById("s-wh").value,
+              ambassador_new_percent: document.getElementById("s-new").value,
+              ambassador_renewal_percent: document.getElementById("s-renewal").value,
+            }),
+          });
+          outputEl.innerHTML = `<div class="alert-success">✔ Settings saved successfully!</div>`;
+        } catch (err) {
+          renderError(outputEl, err);
+        }
+      });
     });
   } catch (err) {
     renderError(formEl, err);
@@ -1639,13 +1878,15 @@ async function renderMySummaryView() {
       </div>
     `;
     if (window.lucide) window.lucide.createIcons();
-    document.getElementById("payout-request-submit").addEventListener("click", async () => {
-      const output = document.getElementById("payout-request-output");
-      try {
-        const result = await api("/me/payout-requests", { method: "POST", body: JSON.stringify({ amount: document.getElementById("payout-request-amount").value, note: document.getElementById("payout-request-note").value }) });
-        out("payout-request-output", result);
-        setTimeout(renderMySummaryView, 900);
-      } catch (err) { renderError(output, err); }
+    document.getElementById("payout-request-submit").addEventListener("click", () => {
+      runWithLoading(document.getElementById("payout-request-submit"), "Requesting…", async () => {
+        const output = document.getElementById("payout-request-output");
+        try {
+          const result = await api("/me/payout-requests", { method: "POST", body: JSON.stringify({ amount: document.getElementById("payout-request-amount").value, note: document.getElementById("payout-request-note").value }) });
+          out("payout-request-output", result);
+          setTimeout(renderMySummaryView, 900);
+        } catch (err) { renderError(output, err); }
+      });
     });
   } catch (err) {
     renderError(contentEl, err);
@@ -1704,11 +1945,11 @@ async function renderEnrollView() {
         <input id="e-email" placeholder="Email (optional)" />
         <div style="grid-column:1 / -1">
           <label class="muted">Choose a plan</label>
-          <select id="e-planSelect"><option value="">Loading plans…</option></select>
-          <div id="e-planDetails" style="margin-top:8px">Fetching available health plans…</div>
+          <div id="e-planCards" class="plan-card-wrap">Fetching available health plans…</div>
+          <div id="e-planSummary" class="plan-summary muted">Select a plan to continue.</div>
         </div>
-        <input id="e-planCode" placeholder="Plan code" readonly />
-        <input id="e-planName" placeholder="Plan name" readonly />
+        <input id="e-planCode" type="hidden" />
+        <input id="e-planName" type="hidden" />
         <input id="e-location" placeholder="Location (e.g. Lagos, Nigeria)" />
         <select id="e-gender"><option value="Female">Female</option><option value="Male">Male</option></select>
         <input id="e-dateOfBirth" type="date" />
@@ -1720,66 +1961,53 @@ async function renderEnrollView() {
     </div>
   `;
 
-  const planSelect = document.getElementById("e-planSelect");
+  const planCards = document.getElementById("e-planCards");
+  const planSummary = document.getElementById("e-planSummary");
   const planCodeField = document.getElementById("e-planCode");
   const planNameField = document.getElementById("e-planName");
-  const planDetails = document.getElementById("e-planDetails");
 
-  if (planSelect && planCodeField && planNameField && planDetails) {
+  if (planCards && planCodeField && planNameField) {
     (async () => {
       try {
         const plansData = await api("/plans/health");
         const plans = normalizePlans(plansData);
-        if (plans.length > 0) {
-          planSelect.innerHTML = `<option value="">Select a plan…</option>${plans
-            .map((plan) => {
-              const { code, name, price } = getPlanMeta(plan);
-              return `<option value="${code}" data-name="${name}" data-price="${price}">${name}${code ? ` (${code})` : ""}${price ? ` — ${price}` : ""}</option>`;
-            })
-            .join("")}`;
-          planDetails.innerHTML = `<div class="muted">Choose a plan to see its details and auto-fill the plan code.</div>`;
-        } else {
-          planSelect.innerHTML = `<option value="">No plans available</option>`;
-          planDetails.innerHTML = `<div class="muted">No plans were returned by the provider.</div>`;
-        }
+        renderPlanCards(planCards, plans, {
+          emptyText: "No plans were returned by the provider.",
+          onSelect: (plan) => {
+            const { code, name, price, desc } = planCardMeta(plan);
+            planCodeField.value = code;
+            planNameField.value = name;
+            const line = price
+              ? `Selected: <strong>${name}</strong> · <strong>${price}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`
+              : `Selected: <strong>${name}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`;
+            const feeNote = `<div class="muted">You’ll pay plan price + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee at checkout.</div>`;
+            planSummary.innerHTML = (desc ? `${line}<br><span class="muted">${desc}</span>` : line) + feeNote;
+          },
+        });
       } catch (err) {
-        planSelect.innerHTML = `<option value="">Unable to load plans</option>`;
-        planDetails.innerHTML = `<div class="muted">Unable to load plans right now: ${err.message}</div>`;
+        planCards.innerHTML = `<div class="alert-error">Unable to load plans right now: ${err.message}</div>`;
       }
     })();
-
-    planSelect.addEventListener("change", () => {
-      const selected = planSelect.options[planSelect.selectedIndex];
-      const code = selected?.value || "";
-      const name = selected?.dataset.name || "";
-      const price = selected?.dataset.price || "";
-      const description = selected?.dataset.description || "";
-      planCodeField.value = code;
-      planNameField.value = name;
-      if (code) {
-        planDetails.innerHTML = `<div class="muted">Selected plan: <strong>${name}</strong>${price ? ` · ${price}` : ""}${description ? `<br>${description}` : ""}</div>`;
-      } else {
-        planDetails.innerHTML = `<div class="muted">Choose a plan to see its details and auto-fill the plan code.</div>`;
-      }
-    });
   }
 
   if (isAmbassador) {
-    document.getElementById("g-create").addEventListener("click", async () => {
-      try {
-        const data = await api("/groups", {
-          method: "POST",
-          body: JSON.stringify({ name: document.getElementById("g-name").value, type: document.getElementById("g-type").value }),
-        });
-        out("g-output", data);
-        renderEnrollView();
-      } catch (err) {
-        out("g-output", err.data || err.message);
-      }
+    document.getElementById("g-create").addEventListener("click", () => {
+      runWithLoading(document.getElementById("g-create"), "Creating…", async () => {
+        try {
+          const data = await api("/groups", {
+            method: "POST",
+            body: JSON.stringify({ name: document.getElementById("g-name").value, type: document.getElementById("g-type").value }),
+          });
+          out("g-output", data);
+          renderEnrollView();
+        } catch (err) {
+          out("g-output", err.data || err.message);
+        }
+      });
     });
   }
 
-  document.getElementById("e-submit").addEventListener("click", async () => {
+  document.getElementById("e-submit").addEventListener("click", () => {
     const payload = {
       firstName: document.getElementById("e-firstName").value,
       lastName: document.getElementById("e-lastName").value,
@@ -1793,19 +2021,22 @@ async function renderEnrollView() {
       dateOfBirth: document.getElementById("e-dateOfBirth").value,
     };
     if (isAmbassador) payload.groupId = document.getElementById("e-groupId").value;
-    try {
-      const data = await api("/subscriptions", { method: "POST", body: JSON.stringify(payload) });
-      if (data.paymentRequired && data.authorizationUrl) {
-        out("e-output", { message: "Opening secure Paystack checkout…", paymentRequired: true });
-        window.location.assign(data.authorizationUrl);
-        return;
-      } else {
-        out("e-output", data);
+    runWithLoading(document.getElementById("e-submit"), "Opening checkout…", async () => {
+      try {
+        const data = await api("/subscriptions", { method: "POST", body: JSON.stringify(payload) });
+        if (data.paymentRequired && data.authorizationUrl) {
+          out("e-output", { message: "Opening secure Paystack checkout…", paymentRequired: true });
+          window.location.assign(data.authorizationUrl);
+          return;
+        } else {
+          out("e-output", data);
+        }
+        clearFields(["e-firstName", "e-lastName", "e-phoneNumber", "e-email", "e-location", "e-gender", "e-dateOfBirth", "e-groupId"]);
+        clearPlanSelection("e-planCards", "e-planSummary");
+      } catch (err) {
+        out("e-output", err.data || err.message);
       }
-      clearFields(["e-firstName", "e-lastName", "e-phoneNumber", "e-email", "e-planCode", "e-planName", "e-location", "e-gender", "e-dateOfBirth", "e-groupId", "e-planSelect"]);
-    } catch (err) {
-      out("e-output", err.data || err.message);
-    }
+    });
   });
 }
 
@@ -1817,7 +2048,7 @@ async function renderBulkEnrollView() {
   try {
     const [groups, plansData] = await Promise.all([api("/groups/mine"), api("/plans/health")]);
     const plans = normalizePlans(plansData);
-    form.innerHTML = `<select id="bulk-group"><option value="">Choose your group</option>${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join("")}</select><select id="bulk-plan" style="margin-top:8px"><option value="">Choose one plan for this batch</option>${plans.map(p => { const m = getPlanMeta(p); return `<option value="${m.code}" data-price="${m.price}">${m.name} — NGN ${m.price}</option>`; }).join("")}</select><div id="bulk-rows" style="margin-top:12px"></div><button class="subtle" id="bulk-add">Add person</button><button class="primary" id="bulk-pay" style="margin-left:6px">Review & pay</button><div id="bulk-output"></div>`;
+    form.innerHTML = `<select id="bulk-group"><option value="">Choose your group</option>${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join("")}</select><select id="bulk-plan" style="margin-top:8px"><option value="">Choose one plan for this batch</option>${plans.map(p => { const m = getPlanMeta(p); const price = Number(m.price); return `<option value="${m.code}" data-price="${m.price}">${m.name} — NGN ${price.toLocaleString()} per person (+ NGN ${PAYMENT_FEE_NAIRA} fee per batch)</option>`; }).join("")}</select><div id="bulk-rows" style="margin-top:12px"></div><button class="subtle" id="bulk-add">Add person</button><button class="primary" id="bulk-pay" style="margin-left:6px">Review & pay</button><div id="bulk-output"></div>`;
     const rows = document.getElementById("bulk-rows");
     function addRow() {
       if (rows.children.length >= 20) return;
@@ -1827,16 +2058,19 @@ async function renderBulkEnrollView() {
     }
     addRow();
     document.getElementById("bulk-add").onclick = addRow;
-    document.getElementById("bulk-pay").onclick = async () => {
+    document.getElementById("bulk-pay").onclick = () => {
       const customers = [...rows.children].map(row => Object.fromEntries([...row.querySelectorAll("[data-field]")].map(el => [el.dataset.field, el.value.trim()])));
       const selectedPlan = document.getElementById("bulk-plan");
-      const total = Number(selectedPlan.options[selectedPlan.selectedIndex]?.dataset.price || 0) * customers.length;
-      if (!window.confirm(`You are about to pay NGN ${total.toLocaleString()} for ${customers.length} customer(s). Continue?`)) return;
-      try {
-        const result = await api("/bulk-orders", { method: "POST", body: JSON.stringify({ groupId: document.getElementById("bulk-group").value, planCode: selectedPlan.value, customers }) });
-        out("bulk-output", { message: `Opening secure payment for ${result.customerCount} customers…`, paymentRequired: true });
-        window.location.assign(result.authorizationUrl);
-      } catch (err) { renderError(document.getElementById("bulk-output"), err); }
+      const planTotal = Number(selectedPlan.options[selectedPlan.selectedIndex]?.dataset.price || 0) * customers.length;
+      const total = planTotal + PAYMENT_FEE_NAIRA;
+      if (!window.confirm(`You are about to pay NGN ${total.toLocaleString()} (NGN ${planTotal.toLocaleString()} plans + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee) for ${customers.length} customer(s). Continue?`)) return;
+      runWithLoading(document.getElementById("bulk-pay"), "Preparing payment…", async () => {
+        try {
+          const result = await api("/bulk-orders", { method: "POST", body: JSON.stringify({ groupId: document.getElementById("bulk-group").value, planCode: selectedPlan.value, customers }) });
+          out("bulk-output", { message: `Opening secure payment for ${result.customerCount} customers…`, paymentRequired: true });
+          window.location.assign(result.authorizationUrl);
+        } catch (err) { renderError(document.getElementById("bulk-output"), err); }
+      });
     };
   } catch (err) { renderError(form, err); }
 }
@@ -1855,17 +2089,21 @@ function renderLookupView() {
       <pre class="output" id="l-output"></pre>
     </div>
   `;
-  document.getElementById("l-submit").addEventListener("click", async () => {
+  document.getElementById("l-submit").addEventListener("click", () => {
     const type = document.getElementById("l-type").value;
     const value = document.getElementById("l-value").value.trim();
+    const outputEl = document.getElementById("l-output");
     if (!value) return out("l-output", { error: "Enter a value" });
-    try {
-      const path = type === "phone" ? `/subscriptions/phone/${encodeURIComponent(value)}` : `/subscriptions/policy/${encodeURIComponent(value)}`;
-      const data = await api(path);
-      out("l-output", data);
-    } catch (err) {
-      out("l-output", err.data || err.message);
-    }
+    runWithLoading(document.getElementById("l-submit"), "Looking up…", async () => {
+      renderLoading(outputEl, `Searching for ${value}…`);
+      try {
+        const path = type === "phone" ? `/subscriptions/phone/${encodeURIComponent(value)}` : `/subscriptions/policy/${encodeURIComponent(value)}`;
+        const data = await api(path);
+        out("l-output", data);
+      } catch (err) {
+        out("l-output", err.data || err.message);
+      }
+    });
   });
 }
 
@@ -1880,10 +2118,10 @@ function renderRenewView() {
         <input id="r-phoneNumber" placeholder="Phone number" />
         <div style="grid-column:1 / -1">
           <label class="muted">Choose a plan</label>
-          <select id="r-planSelect"><option value="">Loading plans…</option></select>
-          <div id="r-planDetails" style="margin-top:8px">Fetching available health plans…</div>
+          <div id="r-planCards" class="plan-card-wrap">Fetching available health plans…</div>
+          <div id="r-planSummary" class="plan-summary muted">Select a plan to continue.</div>
         </div>
-        <input id="r-planCode" placeholder="Plan code" readonly />
+        <input id="r-planCode" type="hidden" />
         <div class="muted" style="grid-column:1 / -1">Clicking Renew will open the Paystack checkout automatically.</div>
       </div>
       <button class="primary" id="r-submit">Renew</button>
@@ -1891,67 +2129,55 @@ function renderRenewView() {
     </div>
   `;
 
-  const planSelect = document.getElementById("r-planSelect");
+  const planCards = document.getElementById("r-planCards");
+  const planSummary = document.getElementById("r-planSummary");
   const planCodeField = document.getElementById("r-planCode");
-  const planDetails = document.getElementById("r-planDetails");
 
-  if (planSelect && planCodeField && planDetails) {
+  if (planCards && planCodeField) {
     (async () => {
       try {
         const plansData = await api("/plans/health");
         const plans = normalizePlans(plansData);
-        if (plans.length > 0) {
-          planSelect.innerHTML = `<option value="">Select a plan…</option>${plans
-            .map((plan) => {
-              const { code, name, price } = getPlanMeta(plan);
-              return `<option value="${code}" data-name="${name}" data-price="${price}">${name}${code ? ` (${code})` : ""}${price ? ` — ${price}` : ""}</option>`;
-            })
-            .join("")}`;
-          planDetails.innerHTML = `<div class="muted">Choose a plan to auto-fill the renewal plan code.</div>`;
-        } else {
-          planSelect.innerHTML = `<option value="">No plans available</option>`;
-          planDetails.innerHTML = `<div class="muted">No plans were returned by the provider.</div>`;
-        }
+        renderPlanCards(planCards, plans, {
+          emptyText: "No plans were returned by the provider.",
+          onSelect: (plan) => {
+            const { code, name, price, desc } = planCardMeta(plan);
+            planCodeField.value = code;
+            const line = price
+              ? `Selected: <strong>${name}</strong> · <strong>${price}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`
+              : `Selected: <strong>${name}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`;
+            const feeNote = `<div class="muted">You’ll pay plan price + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee at checkout.</div>`;
+            planSummary.innerHTML = (desc ? `${line}<br><span class="muted">${desc}</span>` : line) + feeNote;
+          },
+        });
       } catch (err) {
-        planSelect.innerHTML = `<option value="">Unable to load plans</option>`;
-        planDetails.innerHTML = `<div class="muted">Unable to load plans right now: ${err.message}</div>`;
+        planCards.innerHTML = `<div class="alert-error">Unable to load plans right now: ${err.message}</div>`;
       }
     })();
-
-    planSelect.addEventListener("change", () => {
-      const selected = planSelect.options[planSelect.selectedIndex];
-      const code = selected?.value || "";
-      const name = selected?.dataset.name || "";
-      const price = selected?.dataset.price || "";
-      const description = selected?.dataset.description || "";
-      planCodeField.value = code;
-      if (code) {
-        planDetails.innerHTML = `<div class="muted">Selected plan: <strong>${name}</strong>${price ? ` · ${price}` : ""}${description ? `<br>${description}` : ""}</div>`;
-      } else {
-        planDetails.innerHTML = `<div class="muted">Choose a plan to auto-fill the renewal plan code.</div>`;
-      }
-    });
   }
 
-  document.getElementById("r-submit").addEventListener("click", async () => {
+  document.getElementById("r-submit").addEventListener("click", () => {
     const payload = {
       phoneNumber: document.getElementById("r-phoneNumber").value,
       planCode: document.getElementById("r-planCode").value,
       paymentMethod: "paystack",
     };
-    try {
-      const data = await api("/subscriptions/renewals", { method: "POST", body: JSON.stringify(payload) });
-      if (data.paymentRequired && data.authorizationUrl) {
-        out("r-output", { message: "Opening secure Paystack checkout…", paymentRequired: true });
-        window.location.assign(data.authorizationUrl);
-        return;
-      } else {
-        out("r-output", data);
+    runWithLoading(document.getElementById("r-submit"), "Processing…", async () => {
+      try {
+        const data = await api("/subscriptions/renewals", { method: "POST", body: JSON.stringify(payload) });
+        if (data.paymentRequired && data.authorizationUrl) {
+          out("r-output", { message: "Opening secure Paystack checkout…", paymentRequired: true });
+          window.location.assign(data.authorizationUrl);
+          return;
+        } else {
+          out("r-output", data);
+        }
+        clearFields(["r-phoneNumber", "r-planCode"]);
+        clearPlanSelection("r-planCards", "r-planSummary");
+      } catch (err) {
+        out("r-output", err.data || err.message);
       }
-      clearFields(["r-phoneNumber", "r-planCode", "r-planSelect"]);
-    } catch (err) {
-      out("r-output", err.data || err.message);
-    }
+    });
   });
 }
 
@@ -1983,16 +2209,225 @@ async function renderMyPoliciesView() {
   }
 }
 
-// ---------- Read Manual (Phase 7) ----------
+// ---------- Read Manual (full per-role guide) ----------
+const MANUAL_COMMON = `
+  <h2>Getting Started</h2>
+  <h3>Logging in</h3>
+  <p>Open SehaNet and enter the <strong>username</strong> and <strong>password</strong> your admin gave you, then click <strong>Log in</strong>. If you don't have login details yet, ask your admin to create an account for you.</p>
+  <h3>Changing your password</h3>
+  <p>Click the <strong>key icon</strong> at the top of the screen, enter your current password and a new one (at least 6 characters), type it again to confirm, and click <strong>Update</strong>. The app signs you out if you're idle for 2 minutes — that's a security feature, not a bug.</p>
+  <h3>Signing out</h3>
+  <p>Click the <strong>Log out</strong> button at the top of the screen whenever you finish working. Never share your password with anyone, and don't leave yourself logged in on a shared computer.</p>
+`;
+
+const MANUAL_COMMISSION_ENGINE = `
+  <h2>How Commission Works</h2>
+  <p>SehaNet's money model is simple. When a customer pays for a plan:</p>
+  <ol>
+    <li>The customer pays the <strong>plan price</strong>, plus a fixed <strong>NGN 500 payment fee</strong> at every checkout (one fee per transaction, even for bulk enrollments).</li>
+    <li><strong>WellaHealth's cut to admin</strong> (the percentage in Commission Settings) is the share of the plan price that comes to the business. This is the admin's income from the sale.</li>
+    <li>An <strong>Ambassador's commission</strong> is a percentage of that WellaHealth cut — <em>not</em> a percentage of the full customer payment. A different rate applies to new enrollments vs. renewals.</li>
+  </ol>
+  <p>So one new enrollment of NGN 5,000 with a 20% WellaHealth cut and a 30% ambassador rate looks like this:</p>
+  <ul>
+    <li>WellaHealth cut to admin: NGN 5,000 × 20% = <strong>NGN 1,000</strong></li>
+    <li>Ambassador commission: NGN 1,000 × 30% = <strong>NGN 300</strong></li>
+    <li>Admin net after expenses: NGN 1,000 + NGN 500 fee − NGN 300 = <strong>NGN 1,200</strong></li>
+  </ul>
+  <p>Rates are snapshotted at the moment of sale. Changing Commission Settings only affects future activity — it never rewrites a commission that was already earned.</p>
+`;
+
+const MANUAL_BY_ROLE = {
+  admin: `
+    <h1>SehaNet — Administrator Manual</h1>
+    <p>This guide walks through every tab available to an admin, in order. Read the sections that apply to what you're doing today.</p>
+    ${MANUAL_COMMON}
+    <h2>Dashboard</h2>
+    <p>The Dashboard is a live summary of the whole business. It shows:</p>
+    <ul>
+      <li><strong>Payments recorded</strong> — total money that came in from policies and renewals (plan prices plus payment fees).</li>
+      <li><strong>Payment fees collected</strong> — total NGN 500 fees charged across all checkouts.</li>
+      <li><strong>Admin net before expenses</strong> — all recorded payments less ambassador commission owed.</li>
+      <li><strong>Admin net after expenses</strong> — your actual income: the WellaHealth cut (plan payments × the % set in Commission Settings), plus payment fees, less ambassador commission owed. See "How Commission Works" below.</li>
+      <li><strong>Ambassador commission owed / paid</strong> — what ambassadors have earned and what has already been paid out. The gap is the outstanding balance.</li>
+      <li><strong>Customers / Active policies</strong> — total customer records and currently-active policies.</li>
+    </ul>
+    <p>These figures are calculated from recorded data only; nothing here is typed in by hand.</p>
+
+    <h2>Agents &amp; Ambassadors</h2>
+    <h3>Creating an account</h3>
+    <p>Fill in the person's <strong>name, phone, username, and password</strong> (you choose it — they can change it themselves later). Pick a role:</p>
+    <ul>
+      <li><strong>Agent (unpaid)</strong> — can enroll, look up, and renew customers, but earns no commission and uses no Groups.</li>
+      <li><strong>Ambassador (paid)</strong> — earns commission and works through Groups. When you select Ambassador, bank fields appear.</li>
+    </ul>
+    <p>For an Ambassador, choose the <strong>bank</strong> and enter the <strong>account number</strong>. SehaNet verifies the account against the bank and shows the real account holder's name before saving — always confirm this matches the person you intend to pay.</p>
+    <h3>Editing someone</h3>
+    <p>Click <strong>Edit</strong> next to a user to change their name, phone, or bank details, or to set a <strong>personal commission rate</strong> that overrides the default. Clicking <strong>Save &amp; Verify Bank</strong> re-checks the account number before saving.</p>
+    <h3>Blocking, unblocking, removing</h3>
+    <ul>
+      <li><strong>Block</strong> — temporary pause. The user can't log in while blocked. You must give a reason. <strong>Unblock</strong> restores access any time.</li>
+      <li><strong>Remove</strong> — permanent, and it cannot be undone. For an Ambassador you can optionally <strong>reassign future commissions</strong> to another active Ambassador; this only affects renewals going forward. Anything already earned is untouched and still gets paid.</li>
+    </ul>
+
+    <h2>Policies</h2>
+    <p>The full directory of every enrollment. <strong>Search</strong> by customer name or phone, or <strong>filter by status</strong> (Active, Cancelled, Expired). The list is paginated — use Previous/Next to move through results. Each row shows the customer, plan, WellaHealth policy number, amount paid, status, who enrolled them, and the policy end date.</p>
+
+    <h2>Renewals Due</h2>
+    <p>Every policy across the whole system that expires within the next 14 days, soonest first. Rows due in 3 days or less are highlighted. Use the phone number link to call or SMS the customer and remind them to renew — reminders are still sent manually.</p>
+
+    <h2>Groups</h2>
+    <p>A read-only view of every Group Ambassadors have created (which bank, market, school, or association each one covers). Groups are created by Ambassadors themselves, not by you.</p>
+
+    <h2>Commission Settings</h2>
+    <p>Three percentages control all money calculations:</p>
+    <ul>
+      <li><strong>WellaHealth's cut to admin (%)</strong> — the share of each plan payment that comes to your business.</li>
+      <li><strong>Ambassador rate — new enrollment (%)</strong> — what an Ambassador earns from a new sign-up, as a share of the WellaHealth cut above.</li>
+      <li><strong>Ambassador rate — renewal (%)</strong> — the same idea for renewals.</li>
+    </ul>
+    <p>Click <strong>Save Settings</strong> when done. Changes only affect activity going forward. You can also override the rate for one specific Ambassador from their profile in Agents &amp; Ambassadors.</p>
+
+    <h2>Weekly Payout</h2>
+    <p>This is where Ambassadors actually get paid.</p>
+    <h3>Load a draft</h3>
+    <p>Click <strong>Load / Create Draft</strong> for the current week (leave the week field blank), or type a specific week (e.g. 2026-W30) to catch up on a past one.</p>
+    <h3>Review</h3>
+    <p>The draft lists each Ambassador, how many enrollments and renewals they had, and the exact amount owed. Check these numbers before paying — this is the amount of money that will leave your account.</p>
+    <h3>Approve &amp; Pay</h3>
+    <p>Clicking <strong>Approve &amp; Pay</strong> initiates real Paystack bank transfers to each Ambassador's verified account. There is no undo, so double-check the total first. A failed transfer (e.g. a bad account number) is clearly marked and doesn't block the others; fix the account details and retry.</p>
+    <h3>Payout History</h3>
+    <p>Every past payout is kept here, and you can export any week as a CSV spreadsheet for your records.</p>
+    <h3>Ambassador Payment Requests</h3>
+    <p>When an Ambassador requests a payment from My Earnings, it appears here with their available balance. <strong>Approve</strong> to accept it, <strong>Reject</strong> to decline (optionally leaving a note), or <strong>Pay now</strong> to send the money immediately via Paystack. Only approve amounts you're sure about.</p>
+
+    <h2>Enroll</h2>
+    <p>Register a single customer exactly like an Agent would: fill in their details, pick a plan (the price plus the NGN 500 payment fee is shown), and click <strong>Enroll</strong>. The customer is taken to the secure Paystack checkout and, once payment succeeds, their WellaHealth policy is created automatically. The same phone number can never be enrolled twice.</p>
+
+    <h2>Look Up</h2>
+    <p>Find any customer by <strong>phone number</strong> or <strong>WellaHealth policy number</strong>. Results show the full subscription details, including nested payment information.</p>
+
+    <h2>Renew</h2>
+    <p>Renew any customer in the system: enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the Paystack checkout (plan price + NGN 500 fee) and their policy end date is extended automatically.</p>
+
+    ${MANUAL_COMMISSION_ENGINE}
+
+    <h2>Security notes</h2>
+    <p>Never share your password, Paystack keys, or customer data. Always confirm an Ambassador's bank details before approving a real transfer, and never pay a payout amount you haven't reviewed in the draft.</p>
+  `,
+
+  ambassador: `
+    <h1>SehaNet — Ambassador Manual</h1>
+    <p>As an Ambassador you enroll and renew customers and earn commission for it. This guide explains every tab you see.</p>
+    ${MANUAL_COMMON}
+    ${MANUAL_COMMISSION_ENGINE}
+
+    <h2>Enroll</h2>
+    <h3>Create a Group first</h3>
+    <p>A <strong>Group</strong> represents the community you're working — a bank's staff, a market, a school, and so on. On the Enroll tab, give your Group a name (e.g. "GTBank Lagos Staff") and pick a type (Bank, Market, School, Association, or Other), then click <strong>Create Group</strong>. You only do this once per community; after that you pick it from the dropdown.</p>
+    <h3>Enrolling one customer</h3>
+    <ol>
+      <li>Pick the Group this customer belongs to (or create a new one).</li>
+      <li>Fill in the customer's <strong>first name, last name, phone number</strong> (in the format 2348...), email (optional), <strong>location, gender, and date of birth</strong>.</li>
+      <li>Choose a plan from the cards. The summary shows the plan price plus the <strong>NGN 500 payment fee</strong> you'll collect.</li>
+      <li>Click <strong>Enroll</strong> — the customer is taken to the secure Paystack checkout. When payment succeeds, their WellaHealth policy is created automatically and you'll see the confirmation.</li>
+    </ol>
+    <p><strong>You can't enroll the same phone number twice.</strong> If someone is already a customer, use <strong>Renew</strong> instead.</p>
+
+    <h2>Bulk Enroll</h2>
+    <p>For up to <strong>20 people on the same plan</strong> in one payment:</p>
+    <ol>
+      <li>Choose your <strong>Group</strong> and one <strong>plan</strong> for the whole batch.</li>
+      <li>Click <strong>Add person</strong> to fill in each customer's details (a name, phone, location, date of birth, and gender are required for every person).</li>
+      <li>Click <strong>Review &amp; pay</strong>. You'll see the total (all plan prices plus a single NGN 500 payment fee for the batch) and confirm.</li>
+      <li>The batch opens in the secure Paystack checkout. Once paid, SehaNet creates each customer's policy automatically.</li>
+    </ol>
+    <p>All phone numbers in a batch must be different, and none may already be enrolled.</p>
+
+    <h2>Renewals Due</h2>
+    <p>Your worklist: your own customers whose plans expire within the next 14 days, soonest first. Rows due in 3 days or less are highlighted. Call or message them to offer a renewal.</p>
+
+    <h2>Look Up</h2>
+    <p>Find any customer in the system by <strong>phone number</strong> or <strong>policy number</strong> — useful for checking a customer's plan before renewing them.</p>
+
+    <h2>Renew</h2>
+    <p>You can renew <strong>any</strong> customer, not just ones you enrolled. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout (plan price + NGN 500 fee) and their policy end date extends automatically.</p>
+
+    <h2>My Groups</h2>
+    <p>A list of every Group you've created, with its type and when it was made.</p>
+
+    <h2>My Earnings</h2>
+    <p>Your money, in one place:</p>
+    <ul>
+      <li><strong>Available to request</strong> — commission you've earned and can withdraw right now.</li>
+      <li><strong>Already paid</strong> — what has been paid out to you.</li>
+      <li><strong>Lifetime commission</strong> — everything you've ever earned, including amounts currently sitting in a request.</li>
+    </ul>
+    <h3>Requesting payment</h3>
+    <p>Enter an amount up to your available balance, optionally add a note, and click <strong>Request payment</strong>. Your admin reviews it in Weekly Payout; if approved, the money is sent to the bank account on file. Track the status of each request in <strong>Request history</strong> (Pending / Approved / Paid / Rejected).</p>
+
+    <h2>Security notes</h2>
+    <p>Keep your username and password private. You can only see your own customers and earnings — you cannot view another Ambassador's.</p>
+  `,
+
+  agent: `
+    <h1>SehaNet — Agent Manual</h1>
+    <p>As an Agent you enroll, look up, and renew customers. You don't earn commission and you don't use Groups. This guide explains every tab you see.</p>
+    ${MANUAL_COMMON}
+
+    <h2>Enroll</h2>
+    <ol>
+      <li>Fill in the customer's <strong>first name, last name, phone number</strong> (format 2348...), email (optional), <strong>location, gender, and date of birth</strong>.</li>
+      <li>Choose a plan from the cards. The summary shows the plan price plus the <strong>NGN 500 payment fee</strong> charged at checkout.</li>
+      <li>Click <strong>Enroll</strong> — the customer is taken to the secure Paystack checkout. When payment succeeds, their WellaHealth policy is created automatically.</li>
+    </ol>
+    <p><strong>You can't enroll the same phone number twice.</strong> If someone is already a customer, use <strong>Renew</strong> instead.</p>
+
+    <h2>Renewals Due</h2>
+    <p>Your worklist: customers you enrolled whose plans expire within the next 14 days, soonest first. Rows due in 3 days or less are highlighted. Contact them to offer a renewal.</p>
+
+    <h2>Look Up</h2>
+    <p>Find any customer by <strong>phone number</strong> or <strong>WellaHealth policy number</strong> — handy before renewing someone.</p>
+
+    <h2>Renew</h2>
+    <p>You can renew <strong>any</strong> customer in the system. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout (plan price + NGN 500 fee) and their policy end date extends automatically.</p>
+
+    <h2>My Enrollments</h2>
+    <p>Everyone you've personally signed up, with their current status (Active, Cancelled, Expired, etc.) and when they were enrolled. Use this for follow-up.</p>
+
+    <h2>Security notes</h2>
+    <p>Keep your username and password private. You only see your own enrollment records.</p>
+  `,
+
+  customer: `
+    <h1>SehaNet — Customer Manual</h1>
+    <p>SehaNet is how you buy and manage your WellaHealth plan. This guide explains the tabs available to you.</p>
+    ${MANUAL_COMMON}
+
+    <h2>My Plan</h2>
+    <p>Your current policy: the plan you're on, its status, and when it was created. If your policy is active, you're covered — keep an eye on the end date so you can renew before it expires.</p>
+
+    <h2>Enroll</h2>
+    <p>Buy a health plan:</p>
+    <ol>
+      <li>Fill in your details (your phone number must match the one on your account).</li>
+      <li>Choose a plan. The summary shows the plan price plus the <strong>NGN 500 payment fee</strong> added at checkout.</li>
+      <li>Click <strong>Enroll</strong> — you're taken to the secure Paystack checkout to pay by card.</li>
+    </ol>
+    <p>Once payment succeeds, your policy is created automatically. Your phone number can only be enrolled once.</p>
+
+    <h2>Plan Expiry</h2>
+    <p>Shows when your plan is due to expire (within the next 14 days), so you know when to renew and avoid a gap in cover.</p>
+
+    <h2>Security notes</h2>
+    <p>Keep your username and password private. If you think your account has been used without permission, tell your admin immediately.</p>
+  `,
+};
+
 async function renderManualView() {
   const container = document.getElementById("views");
-  const manuals = {
-    admin: `<h2>Administrator Manual</h2><h3>Daily work</h3><ol><li>Review Policies and Renewals Due to follow up with customers.</li><li>Use Agents & Ambassadors to manage staff and verified bank details.</li><li>Review payment requests, approve only valid amounts, then use Pay now to send a transfer.</li><li>Check Commission Settings before changing any rate.</li></ol><h3>Important</h3><p>Never share passwords, Paystack keys, or customer data. Confirm bank details before a real transfer.</p>`,
-    ambassador: `<h2>Ambassador Manual</h2><ol><li>Create a group before enrolling customers.</li><li>Use Enroll for one customer or Bulk Enroll for up to 20 people on one plan.</li><li>Check My Earnings, then request only your available balance.</li><li>Use Renewals Due to contact customers before their plan expires.</li></ol><p>You cannot view other ambassadors’ customers or earnings.</p>`,
-    agent: `<h2>Agent Manual</h2><ol><li>Use Enroll to register one customer and take them to secure payment.</li><li>Use My Enrollments and Renewals Due for follow-up.</li><li>Use Renew only after confirming the customer’s phone number and plan.</li></ol><p>You only see your own enrollment records.</p>`,
-    customer: `<h2>Customer Manual</h2><ol><li>Use My Plan to check your policy status and expiry date.</li><li>Use Enroll to purchase your health plan securely.</li><li>Use Plan Expiry to see upcoming renewal timing.</li><li>Keep your username and password private.</li></ol>`,
-  };
-  container.innerHTML = `<div class="card"><button class="subtle manual-back-btn" id="manual-back-btn">← Back</button><div class="manual-content">${manuals[state.user.role] || ""}</div></div>`;
+  const content = MANUAL_BY_ROLE[state.user.role] || MANUAL_BY_ROLE.agent;
+  container.innerHTML = `<div class="card"><button class="subtle manual-back-btn" id="manual-back-btn">← Back</button><div class="manual-content">${content}</div></div>`;
   document.getElementById("manual-back-btn").addEventListener("click", () => setActiveTab(state.lastTab || (TABS_BY_ROLE[state.user.role] || [])[0]?.[0]));
 }
 
