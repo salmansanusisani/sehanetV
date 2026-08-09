@@ -16,12 +16,74 @@ async function api(path, options = {}) {
       ...(options.headers || {}),
     },
   });
+
+  // Expired/invalid token mid-session: drop the session and return to login.
+  if (res.status === 401 && state.token) {
+    showLoginScreen("Your session has expired. Please log in again.");
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error || "Request failed"), { data });
   return data;
 }
 
+// ---------- Toasts ----------
+function showToast(message, type = "info", actions = []) {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const el = document.createElement("div");
+  el.className = `toast toast-${type}`;
+  el.setAttribute("role", "status");
+  el.innerHTML = `
+    <div class="toast-body">${message}</div>
+    ${actions.length ? `<div class="toast-actions">${actions.map((a) => `<button class="toast-btn" type="button">${a.label}</button>`).join("")}</div>` : ""}
+    ${actions.length ? "" : `<button class="toast-close" type="button" aria-label="Dismiss">&times;</button>`}
+  `;
+
+  if (!actions.length) {
+    el.querySelector(".toast-close").addEventListener("click", () => el.remove());
+  }
+  actions.forEach((action, i) => {
+    el.querySelectorAll(".toast-btn")[i].addEventListener("click", () => {
+      action.onClick && action.onClick();
+      el.remove();
+    });
+  });
+
+  container.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  if (!actions.length) setTimeout(() => el.remove(), 5000);
+  return el;
+}
+
 // ---------- Auth ----------
+function showLoginScreen(message) {
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem("sehanet_token");
+  stopIdleTimer();
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("loginPassword").value = "";
+  if (message) {
+    document.getElementById("loginError").textContent = message;
+  }
+}
+
+function doLogout() {
+  showLoginScreen("You have been logged out.");
+}
+
+// Keep the login/register forms from doing a native page reload.
+document.getElementById("loginForm")?.addEventListener("submit", (e) => e.preventDefault());
+document.getElementById("registerForm")?.addEventListener("submit", (e) => e.preventDefault());
+
 document.getElementById("loginBtn").addEventListener("click", login);
 document.getElementById("loginPassword").addEventListener("keydown", (e) => {
   if (e.key === "Enter") login();
@@ -79,13 +141,54 @@ async function login() {
   }
 }
 
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  state.token = null;
-  state.user = null;
-  localStorage.removeItem("sehanet_token");
-  document.getElementById("app").classList.add("hidden");
-  document.getElementById("loginScreen").classList.remove("hidden");
-});
+document.getElementById("logoutBtn").addEventListener("click", doLogout);
+
+// ---------- Session inactivity lockout ----------
+// Auto-log out after 2 minutes of inactivity for security, with a 30-second
+// warning toast so nobody gets silently kicked mid-work.
+const SESSION_IDLE_MS = 2 * 60 * 1000;
+const SESSION_WARNING_MS = 30 * 1000;
+
+let idleTimeout = null;
+let idleWarningTimer = null;
+let idleWarningToast = null;
+
+const IDLE_EVENTS = ["pointerdown", "pointermove", "keydown", "click", "scroll", "touchstart", "wheel"];
+let idleBound = false;
+
+function stopIdleTimer() {
+  if (idleTimeout) { clearTimeout(idleTimeout); idleTimeout = null; }
+  if (idleWarningTimer) { clearTimeout(idleWarningTimer); idleWarningTimer = null; }
+  if (idleWarningToast) { idleWarningToast.remove(); idleWarningToast = null; }
+}
+
+function resetIdleTimer() {
+  if (!state.user) return;
+  stopIdleTimer();
+  idleWarningToast = null;
+
+  idleWarningTimer = setTimeout(() => {
+    idleWarningToast = showToast(
+      "For your security, your session will end in 30 seconds if you stay inactive.",
+      "warning",
+      [{ label: "Stay signed in", onClick: () => resetIdleTimer() }]
+    );
+  }, SESSION_IDLE_MS - SESSION_WARNING_MS);
+
+  idleTimeout = setTimeout(() => {
+    showLoginScreen("You were logged out automatically after 2 minutes of inactivity.");
+    if (window.lucide) window.lucide.createIcons();
+  }, SESSION_IDLE_MS);
+}
+
+function startIdleTimer() {
+  if (idleBound) { resetIdleTimer(); return; }
+  idleBound = true;
+  for (const evt of IDLE_EVENTS) {
+    window.addEventListener(evt, resetIdleTimer, { passive: true });
+  }
+  resetIdleTimer();
+}
 
 // ---------- Mobile hamburger nav ----------
 (function setupMobileNav() {
@@ -195,6 +298,10 @@ function setupPasswordModal() {
 
   cancelBtn.addEventListener("click", () => {
     modal.classList.add("hidden");
+  });
+  document.getElementById("pwd-close")?.addEventListener("click", () => modal.classList.add("hidden"));
+  document.getElementById("passwordModal")?.addEventListener("click", (e) => {
+    if (e.target === modal) modal.classList.add("hidden");
   });
 
   submitBtn.addEventListener("click", async () => {
@@ -333,16 +440,19 @@ async function boot() {
   } catch {
     localStorage.removeItem("sehanet_token");
     state.token = null;
+    stopIdleTimer();
     document.getElementById("loginScreen").classList.remove("hidden");
     return;
   }
   document.getElementById("loginScreen").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+  document.getElementById("loginError").textContent = "";
   document.getElementById("userLabel").textContent = `${state.user.name} · ${state.user.role}`;
   setupPasswordModal();
   renderTabs();
   if (window.lucide) window.lucide.createIcons();
   showPaymentBanner();
+  startIdleTimer();
   setTimeout(() => maybeStartTour(), 400); // small delay so tab elements are in the DOM for driver.js to target
 }
 
@@ -454,20 +564,31 @@ function setActiveTab(key) {
 
 async function renderAdminDashboard() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>Business Dashboard</h2><div id="dashboard-content"></div></div>`;
+  container.innerHTML = `<div class="page-head"><h1>Business Dashboard</h1><p class="muted">A live view of payments, policies, and commission across every ambassador.</p></div><div id="dashboard-content"></div>`;
   const content = document.getElementById("dashboard-content");
   renderLoading(content, "Calculating business figures…");
   try {
     const d = await api("/admin/dashboard");
     const money = (v) => `NGN ${Number(v || 0).toLocaleString()}`;
-    content.innerHTML = `<div class="grid">
-      <div class="card"><div class="muted">Customer payments recorded</div><div style="font-size:1.35rem;font-weight:700">${money(d.revenue)}</div></div>
-      <div class="card"><div class="muted">Admin net before expenses</div><div style="font-size:1.35rem;font-weight:700;color:var(--teal)">${money(d.adminNetBeforeExpenses)}</div></div>
-      <div class="card"><div class="muted">Ambassador commission owed</div><div style="font-size:1.35rem;font-weight:700">${money(d.ambassadorOutstanding)}</div></div>
-      <div class="card"><div class="muted">Ambassador commission paid</div><div style="font-size:1.35rem;font-weight:700">${money(d.ambassadorPaid)}</div></div>
-      <div class="card"><div class="muted">Customers</div><div style="font-size:1.35rem;font-weight:700">${d.customerCount}</div></div>
-      <div class="card"><div class="muted">Active policies</div><div style="font-size:1.35rem;font-weight:700">${d.activePolicies}</div></div>
-    </div><p class="muted">“Admin net before expenses” is recorded customer payments less ambassador commission. Confirm WellaHealth settlement and operating expenses separately.</p>`;
+    const stat = (icon, label, value, tone = "", hint = "") => `
+      <div class="stat-card ${tone}">
+        <div class="stat-icon"><i data-lucide="${icon}"></i></div>
+        <div class="stat-label">${label}</div>
+        <div class="stat-value">${value}</div>
+        ${hint ? `<div class="stat-hint">${hint}</div>` : ""}
+      </div>`;
+    content.innerHTML = `
+      <div class="stat-grid">
+        ${stat("wallet", "Payments recorded", money(d.revenue), "tone-teal", `${d.policyCount} policies`)}
+        ${stat("piggy-bank", "Admin net before expenses", money(d.adminNetBeforeExpenses), "tone-gold", "Payments less commission")}
+        ${stat("trending-up", "Ambassador commission owed", money(d.ambassadorOutstanding), "", `${d.customerCount} customers`)}
+        ${stat("check-circle-2", "Ambassador commission paid", money(d.ambassadorPaid), "")}
+        ${stat("users", "Customers", d.customerCount, "")}
+        ${stat("shield-check", "Active policies", d.activePolicies, "")}
+      </div>
+      <div class="card note-card"><div class="muted">“Admin net before expenses” is recorded customer payments less ambassador commission. Confirm WellaHealth settlement and operating expenses separately.</div></div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
   } catch (err) { renderError(content, err); }
 }
 
@@ -556,6 +677,27 @@ function setupPaymentReferenceToggle(methodSelectId, referenceWrapId, referenceI
 
   methodSelect.addEventListener("change", sync);
   sync();
+}
+
+// Download a payout CSV using an authorized fetch (token stays in the header,
+// never in the URL), then trigger a browser download from a blob URL.
+async function downloadPayoutCsv(payoutId, weekLabel) {
+  const res = await fetch(`${API_BASE}/admin/payouts/${payoutId}/export`, {
+    headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Export failed");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `payout-${weekLabel}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ---------- Admin: Team ----------
@@ -1383,7 +1525,6 @@ async function renderPayoutView() {
             ${payouts
               .map((p) => {
                 const badgeClass = p.status === "approved" || p.status === "paid" ? "badge-success" : "badge-pending";
-                const exportUrl = `${API_BASE}/admin/payouts/${p.id}/export?token=${encodeURIComponent(state.token)}`;
                 return `
                   <tr>
                     <td><strong>${p.week_label}</strong></td>
@@ -1392,9 +1533,9 @@ async function renderPayoutView() {
                     <td>${p.approved_by_name || "—"}</td>
                     <td style="display:flex; gap:4px;">
                       <button class="subtle" data-action="view-payout" data-id="${p.id}">View</button>
-                      <a href="${exportUrl}" target="_blank" download="payout-${p.week_label}.csv" class="subtle" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                      <button class="subtle" data-export-payout="${p.id}" data-week="${p.week_label}">
                         <i data-lucide="download" style="width:12px;height:12px;"></i> CSV
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 `;
@@ -1415,6 +1556,19 @@ async function renderPayoutView() {
             document.getElementById("payout-result").scrollIntoView({ behavior: "smooth" });
           } catch (err) {
             alert(`Failed to load payout details: ${err.message}`);
+          }
+        });
+      });
+
+      historyEl.querySelectorAll("[data-export-payout]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          try {
+            await downloadPayoutCsv(btn.dataset.exportPayout, btn.dataset.week);
+          } catch (err) {
+            showToast(`CSV export failed: ${err.message}`, "error");
+          } finally {
+            btn.disabled = false;
           }
         });
       });
@@ -1450,21 +1604,41 @@ async function renderMyGroupsView() {
 // ---------- Ambassador: My Earnings ----------
 async function renderMySummaryView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>My Earnings</h2><div id="ms-content"></div></div>`;
+  container.innerHTML = `<div class="page-head"><h1>My Earnings</h1><p class="muted">Your commission, payment requests, and payout history.</p></div><div id="ms-content"></div>`;
   const contentEl = document.getElementById("ms-content");
   renderLoading(contentEl, "Calculating your earnings…");
 
   try {
     const s = await api("/me/earnings");
+    const money = (v) => `NGN ${Number(v || 0).toLocaleString()}`;
+    const stat = (icon, label, value, tone = "", hint = "") => `
+      <div class="stat-card ${tone}">
+        <div class="stat-icon"><i data-lucide="${icon}"></i></div>
+        <div class="stat-label">${label}</div>
+        <div class="stat-value">${value}</div>
+        ${hint ? `<div class="stat-hint">${hint}</div>` : ""}
+      </div>`;
     contentEl.innerHTML = `
-      <div class="grid">
-        <div class="card"><div class="muted">Available to request</div><div style="font-size:1.4rem;font-weight:700;color:var(--teal)">NGN ${s.available.toLocaleString()}</div></div>
-        <div class="card"><div class="muted">Already paid</div><div style="font-size:1.4rem;font-weight:700">NGN ${s.paid.toLocaleString()}</div></div>
+      <div class="stat-grid">
+        ${stat("wallet", "Available to request", money(s.available), "tone-teal")}
+        ${stat("check-circle-2", "Already paid", money(s.paid), "tone-gold")}
+        ${stat("trending-up", "Lifetime commission", money(s.earned), "", `${money(s.pending)} currently requested`)}
       </div>
-      <div class="card"><div class="muted">Lifetime commission</div><div style="font-size:1.6rem;font-weight:700;color:var(--teal)">NGN ${s.earned.toLocaleString()}</div><div class="muted">NGN ${s.pending.toLocaleString()} currently requested</div></div>
-      <div class="card"><h3>Request payout</h3><input id="payout-request-amount" type="number" min="1" max="${s.available}" placeholder="Amount in NGN" /><input id="payout-request-note" placeholder="Optional note to admin" style="margin-top:8px" /><button class="primary" id="payout-request-submit" style="margin-top:10px">Request payment</button><div id="payout-request-output"></div></div>
-      <div class="card"><h3>Request history</h3>${s.requests.length ? `<table><thead><tr><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${s.requests.map(r => `<tr><td>NGN ${Number(r.requested_amount).toLocaleString()}</td><td><span class="badge ${r.status === "rejected" ? "badge-failed" : r.status === "paid" ? "badge-success" : "badge-pending"}">${r.status}</span></td><td>${r.created_at}</td></tr>`).join("")}</tbody></table>` : `<div class="muted">No payment requests yet.</div>`}</div>
+      <div class="card">
+        <h3>Request payout</h3>
+        <div class="grid">
+          <input id="payout-request-amount" type="number" min="1" max="${s.available}" placeholder="Amount in NGN" />
+          <input id="payout-request-note" placeholder="Optional note to admin" />
+        </div>
+        <button class="primary" id="payout-request-submit">Request payment</button>
+        <div id="payout-request-output"></div>
+      </div>
+      <div class="card">
+        <h3>Request history</h3>
+        ${s.requests.length ? `<table><thead><tr><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${s.requests.map(r => `<tr><td><strong>NGN ${Number(r.requested_amount).toLocaleString()}</strong></td><td><span class="badge ${r.status === "rejected" ? "badge-failed" : r.status === "paid" ? "badge-success" : "badge-pending"}">${r.status}</span></td><td>${r.created_at}</td></tr>`).join("")}</tbody></table>` : `<div class="muted">No payment requests yet.</div>`}
+      </div>
     `;
+    if (window.lucide) window.lucide.createIcons();
     document.getElementById("payout-request-submit").addEventListener("click", async () => {
       const output = document.getElementById("payout-request-output");
       try {
@@ -1475,34 +1649,6 @@ async function renderMySummaryView() {
     });
   } catch (err) {
     renderError(contentEl, err);
-  }
-}
-
-// ---------- Agent: My Enrollments ----------
-async function renderMyPoliciesView() {
-  const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>My Enrollments</h2><div id="mp-list"></div></div>`;
-  const listEl = document.getElementById("mp-list");
-  renderLoading(listEl, "Loading your enrollments…");
-
-  try {
-    const policies = await api("/me/policies");
-    if (policies.length === 0) {
-      renderEmptyState(listEl, "No enrollments created yet", "file-text");
-      return;
-    }
-    listEl.innerHTML = `
-      <table>
-        <thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody>
-          ${policies.map(p => {
-            const badgeClass = p.status === "Active" ? "badge-success" : "badge-pending";
-            return `<tr><td>${p.customer_name}</td><td>${p.plan_code}</td><td><span class="badge ${badgeClass}">${p.status}</span></td><td>${p.created_at}</td></tr>`;
-          }).join("")}
-        </tbody>
-      </table>`;
-  } catch (err) {
-    renderError(listEl, err);
   }
 }
 
@@ -1809,19 +1955,31 @@ function renderRenewView() {
   });
 }
 
-// ---------- Agent: My Enrollments ----------
+// ---------- My Enrollments (agent / customer / admin) ----------
 async function renderMyPoliciesView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>My Enrollments</h2><div id="mp-list" class="muted">Loading\u2026</div></div>`;
+  container.innerHTML = `<div class="card"><h2>My Enrollments</h2><div id="mp-list"></div></div>`;
+  const listEl = document.getElementById("mp-list");
+  renderLoading(listEl, "Loading your enrollments…");
+
   try {
     const policies = await api("/me/policies");
-    const listEl = document.getElementById("mp-list");
-    if (policies.length === 0) { listEl.innerHTML = `<div class="muted">No enrollments yet.</div>`; return; }
+    if (policies.length === 0) {
+      renderEmptyState(listEl, "No enrollments created yet", "file-text");
+      return;
+    }
     listEl.innerHTML = `
-      <table><thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
-      <tbody>${policies.map(p => `<tr><td>${p.customer_name}</td><td>${p.plan_code}</td><td>${p.status}</td><td>${p.created_at}</td></tr>`).join("")}</tbody></table>`;
+      <table>
+        <thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          ${policies.map(p => {
+            const badgeClass = p.status === "Active" ? "badge-success" : p.status === "Cancelled" || p.status === "Expired" ? "badge-failed" : "badge-pending";
+            return `<tr><td><strong>${p.customer_name}</strong><div class="muted">${p.customer_phone || ""}</div></td><td>${p.plan_code}</td><td><span class="badge ${badgeClass}">${p.status}</span></td><td>${p.created_at}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
   } catch (err) {
-    document.getElementById("mp-list").innerHTML = `<div class="muted">Failed to load: ${err.message}</div>`;
+    renderError(listEl, err);
   }
 }
 

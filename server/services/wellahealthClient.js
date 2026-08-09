@@ -45,8 +45,23 @@ async function request(config) {
   }
 }
 
+// The plan list rarely changes; cache it so `resolvePlanPrice` doesn't hit
+// the WellaHealth API on every single enrollment/renewal request.
+const PLANS_TTL_MS = 15 * 60 * 1000;
+let plansCache = { fetchedAt: 0, data: null };
+
+async function getHealthPlansCached() {
+  const now = Date.now();
+  if (plansCache.data && now - plansCache.fetchedAt < PLANS_TTL_MS) {
+    return plansCache.data;
+  }
+  const data = await request({ method: "GET", url: "/v1/zoi/plans/health" });
+  plansCache = { fetchedAt: now, data };
+  return data;
+}
+
 module.exports = {
-  getHealthPlans: () => request({ method: "GET", url: "/v1/zoi/plans/health" }),
+  getHealthPlans: getHealthPlansCached,
 
   getSubscriptionByPhone: (phoneNumber) =>
     request({ method: "GET", url: `/v1/zoi/subscriptions/${encodeURIComponent(phoneNumber)}` }),

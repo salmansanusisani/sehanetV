@@ -340,9 +340,12 @@ router.patch("/payout-requests/:id", async (req, res) => {
     const request = rows[0];
     if (!request || request.status !== "pending") return res.status(400).json({ error: "This payout request can no longer be reviewed." });
     if (status === "approved") {
-      const balance = await getAmbassadorBalance(request.ambassador_id);
-      // Balance includes the pending request itself, so restore its amount for this validation.
-      if (request.requested_amount > balance.available + Number(request.requested_amount)) return res.status(400).json({ error: "The requested amount is no longer available." });
+      // Validate against the balance ignoring this pending request itself, so
+      // the check is meaningful even though `available` already subtracts it.
+      const balance = await getAmbassadorBalance(request.ambassador_id, { excludeRequestId: request.id });
+      if (!balance || request.requested_amount > balance.available) {
+        return res.status(400).json({ error: "The requested amount is no longer available." });
+      }
     }
     await pool.execute("UPDATE payout_requests SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?", [status, adminNote || null, req.user.id, request.id]);
     await pool.execute("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'payout_request_reviewed', ?, ?)", [request.ambassador_id, `Payout request ${status}`, adminNote || `Your NGN ${Number(request.requested_amount).toLocaleString()} request was ${status}.`]);

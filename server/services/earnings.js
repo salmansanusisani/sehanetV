@@ -1,18 +1,21 @@
 const { pool } = require("../db/db");
-const { calculateCommission } = require("./commission");
 
-async function getAmbassadorBalance(ambassadorId) {
+/**
+ * Ambassador balance, derived from the frozen commission_ledger rather than
+ * recomputed from live settings. `paid` counts successful transfers
+ * (payout_line_items + paid payout_requests); `pending` counts open payout
+ * requests. Pass `{ excludeRequestId }` to ignore one specific request when
+ * validating whether it can still be approved.
+ */
+async function getAmbassadorBalance(ambassadorId, opts = {}) {
   const [users] = await pool.execute("SELECT * FROM users WHERE id = ? AND role = 'ambassador'", [ambassadorId]);
   const ambassador = users[0];
   if (!ambassador) return null;
 
-  const [policies] = await pool.execute("SELECT price_at_enrollment FROM policies WHERE original_agent_id = ?", [ambassadorId]);
-  const [renewals] = await pool.execute(
-    "SELECT r.amount_paid FROM renewals r WHERE r.processed_by_agent_id = ?", [ambassadorId]
+  const [earnedRows] = await pool.execute(
+    "SELECT COALESCE(SUM(amount), 0) AS total FROM commission_ledger WHERE ambassador_id = ?",
+    [ambassadorId]
   );
-  let earned = 0;
-  for (const policy of policies) earned += await calculateCommission(policy.price_at_enrollment, "new", ambassador);
-  for (const renewal of renewals) earned += await calculateCommission(renewal.amount_paid, "renewal", ambassador);
 
   const [paidRows] = await pool.execute(
     `SELECT COALESCE(SUM(pli.amount), 0) AS total FROM payout_line_items pli
@@ -26,10 +29,28 @@ async function getAmbassadorBalance(ambassadorId) {
     `SELECT COALESCE(SUM(requested_amount), 0) AS total FROM payout_requests
      WHERE ambassador_id = ? AND status IN ('pending', 'approved')`, [ambassadorId]
   );
+
+  let pending = Number(requestedRows[0]?.total || 0);
+  if (opts.excludeRequestId) {
+    const [excludedRows] = await pool.execute(
+      "SELECT requested_amount FROM payout_requests WHERE id = ? AND ambassador_id = ?",
+      [opts.excludeRequestId, ambassadorId]
+    );
+    if (excludedRows[0]) {
+      pending = Math.max(0, pending - Number(excludedRows[0].requested_amount || 0));
+    }
+  }
+
+  const earned = Math.round(Number(earnedRows[0]?.total || 0) * 100) / 100;
   const paid = Number(paidRows[0]?.total || 0) + Number(paidRequestRows[0]?.total || 0);
-  const pending = Number(requestedRows[0]?.total || 0);
-  const roundedEarned = Math.round(earned * 100) / 100;
-  return { earned: roundedEarned, paid, pending, available: Math.max(0, Math.round((roundedEarned - paid - pending) * 100) / 100), enrollmentCount: policies.length, renewalCount: renewals.length };
+  return {
+    earned,
+    paid,
+    pending,
+    available: Math.max(0, Math.round((earned - paid - pending) * 100) / 100),
+    enrollmentCount: 0,
+    renewalCount: 0,
+  };
 }
 
 module.exports = { getAmbassadorBalance };

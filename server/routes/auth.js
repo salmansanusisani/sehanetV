@@ -2,6 +2,7 @@ const express = require("express");
 const { pool } = require("../db/db");
 const { verifyPassword, hashPassword } = require("../utils/password");
 const { signToken } = require("../utils/jwt");
+const { isLocked, lockedUntilMs, recordFailure, resetFailures } = require("../utils/loginGuard");
 
 const router = express.Router();
 
@@ -11,11 +12,19 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "username and password are required" });
   }
 
+  if (isLocked(username)) {
+    const minutes = Math.ceil((lockedUntilMs(username) - Date.now()) / 60000);
+    return res.status(429).json({
+      error: `Too many failed attempts. This account is locked — try again in about ${Math.max(1, minutes)} minute(s).`,
+    });
+  }
+
   try {
     const [rows] = await pool.execute("SELECT * FROM users WHERE username = ?", [username]);
     const user = rows[0];
 
     if (user && verifyPassword(password, user.password_hash)) {
+      resetFailures(username);
       if (user.status !== "active") {
         return res.status(403).json({
           error: user.status === "blocked" ? "Your account has been blocked. Contact the admin." : "Your account is no longer active.",
@@ -34,8 +43,15 @@ router.post("/login", async (req, res) => {
     );
     const customer = customerRows[0];
     if (!customer || !verifyPassword(password, customer.password_hash)) {
-      return res.status(401).json({ error: "Incorrect username or password" });
+      const { attemptsLeft } = recordFailure(username);
+      return res.status(401).json({
+        error: attemptsLeft > 0
+          ? `Incorrect username or password. ${attemptsLeft} attempt(s) remaining before the account locks.`
+          : "Incorrect username or password. Account locked for 15 minutes.",
+      });
     }
+
+    resetFailures(username);
     if (customer.status !== "active") {
       return res.status(403).json({ error: "Your account is not active. Contact support." });
     }

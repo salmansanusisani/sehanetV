@@ -1,6 +1,5 @@
 const express = require("express");
 const { pool } = require("../db/db");
-const { resolveCreditedAmbassador, calculateCommission } = require("../services/commission");
 const { verifyPassword, hashPassword } = require("../utils/password");
 const { getAmbassadorBalance } = require("../services/earnings");
 
@@ -62,9 +61,6 @@ router.get("/me/summary", async (req, res) => {
   }
 
   try {
-    const [ambassadorRows] = await pool.execute("SELECT * FROM users WHERE id = ?", [req.user.id]);
-    const ambassador = ambassadorRows[0];
-
     const [policies] = await pool.execute(
       "SELECT * FROM policies WHERE original_agent_id = ?",
       [req.user.id]
@@ -76,19 +72,17 @@ router.get("/me/summary", async (req, res) => {
       [req.user.id]
     );
 
-    let lifetimeCommission = 0;
-    for (const p of policies) {
-      lifetimeCommission += await calculateCommission(p.price_at_enrollment, "new", ambassador);
-    }
-    for (const r of renewals) {
-      lifetimeCommission += await calculateCommission(r.amount_paid, "renewal", ambassador);
-    }
+    // Lifetime commission comes from the frozen ledger, matching earnings.
+    const [ledgerRows] = await pool.execute(
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM commission_ledger WHERE ambassador_id = ?",
+      [req.user.id]
+    );
 
     res.json({
       role: "ambassador",
       total_enrollments: policies.length,
       total_renewals: renewals.length,
-      lifetime_commission_estimate: Math.round(lifetimeCommission * 100) / 100,
+      lifetime_commission_estimate: Math.round(Number(ledgerRows[0]?.total || 0) * 100) / 100,
     });
   } catch (err) {
     console.error("Failed to load summary:", err);

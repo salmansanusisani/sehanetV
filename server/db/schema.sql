@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS customers (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   CONSTRAINT fk_customers_group FOREIGN KEY (group_id) REFERENCES groups_(id),
-  KEY idx_customers_phone (phone)
+  UNIQUE KEY uniq_customers_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS policies (
@@ -84,7 +84,8 @@ CREATE TABLE IF NOT EXISTS policies (
   CONSTRAINT fk_policies_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
   CONSTRAINT fk_policies_agent FOREIGN KEY (original_agent_id) REFERENCES users(id),
   KEY idx_policies_customer (customer_id),
-  KEY idx_policies_agent (original_agent_id)
+  KEY idx_policies_agent (original_agent_id),
+  UNIQUE KEY uniq_policies_payment_reference (payment_reference)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS customer_accounts (
@@ -172,7 +173,8 @@ CREATE TABLE IF NOT EXISTS renewals (
 
   CONSTRAINT fk_renewals_policy FOREIGN KEY (policy_id) REFERENCES policies(id),
   CONSTRAINT fk_renewals_agent FOREIGN KEY (processed_by_agent_id) REFERENCES users(id),
-  KEY idx_renewals_policy (policy_id)
+  KEY idx_renewals_policy (policy_id),
+  UNIQUE KEY uniq_renewals_payment_reference (payment_reference)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -204,4 +206,27 @@ CREATE TABLE IF NOT EXISTS payout_line_items (
 
   CONSTRAINT fk_payout_line_items_payout FOREIGN KEY (payout_id) REFERENCES payouts(id),
   CONSTRAINT fk_payout_line_items_ambassador FOREIGN KEY (ambassador_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Commission ledger: snapshots each commission event at the moment of the
+-- sale, so changing commission settings later never rewrites history.
+-- `reference` is prefixed with the event type (e.g. "enrollment:REF",
+-- "renewal:REF") and is UNIQUE so duplicate webhook/callback deliveries are
+-- no-ops.
+CREATE TABLE IF NOT EXISTS commission_ledger (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  ambassador_id INT NOT NULL,
+  event_type VARCHAR(20) NOT NULL CHECK (event_type IN ('enrollment', 'renewal')),
+  plan_price DECIMAL(12,2) NOT NULL,
+  wellahealth_percent DECIMAL(6,2) NOT NULL,
+  ambassador_percent DECIMAL(6,2) NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  reference VARCHAR(120) NOT NULL,
+  policy_id INT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_ledger_ambassador FOREIGN KEY (ambassador_id) REFERENCES users(id),
+  CONSTRAINT fk_ledger_policy FOREIGN KEY (policy_id) REFERENCES policies(id),
+  UNIQUE KEY uniq_ledger_reference (reference),
+  KEY idx_ledger_ambassador (ambassador_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

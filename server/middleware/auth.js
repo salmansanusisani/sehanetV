@@ -3,7 +3,7 @@ const { pool } = require("../db/db");
 
 async function authenticate(req, res, next) {
   const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : (req.query.token || null);
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
   if (!token) {
     return res.status(401).json({ error: "Missing or invalid Authorization header or token" });
@@ -16,7 +16,7 @@ async function authenticate(req, res, next) {
     let user;
     if (payload.accountType === "customer") {
       const [rows] = await pool.execute(
-        `SELECT ca.id, ca.customer_id, c.full_name as name, ca.username, ca.status, 'customer' as role
+        `SELECT ca.id, ca.customer_id, c.full_name as name, c.phone, ca.username, ca.status, 'customer' as role
          FROM customer_accounts ca JOIN customers c ON c.id = ca.customer_id WHERE ca.id = ?`,
         [payload.id]
       );

@@ -2,42 +2,15 @@ const express = require("express");
 const { pool } = require("../db/db");
 const wellahealth = require("../services/wellahealthClient");
 const paystack = require("../services/paystack");
+const {
+  resolvePlanPrice,
+  getCallbackUrl,
+  createEnrollmentRecord,
+  recordRenewal,
+  processBulkOrder,
+} = require("../services/enrollment");
 
 const router = express.Router();
-
-async function createEnrollmentRecord({ userId, customerAccountId, existingCustomerId, firstName, lastName, phoneNumber, email, planCode, planName, location, gender, dateOfBirth, amountPaid, paymentReference, resolvedGroupId, wellahealthResult }) {
-  let customerId = existingCustomerId;
-  if (customerId) {
-    await pool.execute(
-      "UPDATE customers SET full_name = ?, phone = ?, email = ?, location = ?, dob = ?, gender = ? WHERE id = ?",
-      [`${firstName} ${lastName}`.trim(), phoneNumber, email || null, location || null, dateOfBirth, gender, customerId]
-    );
-  } else {
-    const [customerResult] = await pool.execute(
-      `INSERT INTO customers (full_name, phone, email, location, dob, gender, group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [`${firstName} ${lastName}`.trim(), phoneNumber, email || null, location || null, dateOfBirth, gender, resolvedGroupId]
-    );
-    customerId = customerResult.insertId;
-  }
-
-  const [policyResult] = await pool.execute(
-    `INSERT INTO policies
-      (customer_id, original_agent_id, customer_account_id, plan_code, plan_name, price_at_enrollment,
-       wellahealth_policy_number, status, start_date, end_date, payment_reference, amount_paid)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      customerId, userId || null, customerAccountId || null, planCode, planName || null, Number(amountPaid),
-      wellahealthResult.policyNumber || null, wellahealthResult.status || "Active",
-      wellahealthResult.startDate || null, wellahealthResult.endDate || null, paymentReference, Number(amountPaid)
-    ]
-  );
-
-  return {
-    customer_id: customerId,
-    policy_id: policyResult.insertId,
-  };
-}
 
 function handle(promise, res) {
   return promise
@@ -50,53 +23,6 @@ function handle(promise, res) {
         details: err.body || null,
       });
     });
-}
-
-function getCallbackUrl(req) {
-  const configured = process.env.APP_BASE_URL || "";
-  if (configured) {
-    return `${configured.replace(/\/$/, "")}/payment/callback`;
-  }
-
-  const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  const host = req.get("host") || "localhost:4000";
-  return `${protocol}://${host}/payment/callback`;
-}
-
-// Looks up a plan's real price server-side, rather than trusting whatever
-// amount the client submits. Checks the same set of possible field names
-// app.js's getPlanMeta() checks on the frontend, since WellaHealth's plan
-// objects aren't 100% consistent about which key the price lives under.
-async function resolvePlanPrice(planCode) {
-  const plansData = await wellahealth.getHealthPlans();
-  const plans = Array.isArray(plansData)
-    ? plansData
-    : Array.isArray(plansData?.plans) ? plansData.plans
-    : Array.isArray(plansData?.items) ? plansData.items
-    : Array.isArray(plansData?.data) ? plansData.data
-    : Array.isArray(plansData?.result) ? plansData.result
-    : Array.isArray(plansData?.results) ? plansData.results
-    : [];
-
-  const match = plans.find((p) => (p?.planCode || p?.code || p?.plan_code || p?.id) === planCode);
-  if (!match) {
-    const err = new Error(`Unknown plan code: ${planCode}`);
-    err.status = 400;
-    throw err;
-  }
-
-  const price = match?.price ?? match?.amount ?? match?.premium ?? match?.priceAmount ?? match?.monthlyPrice;
-  const numericPrice = Number(price);
-  if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
-    const err = new Error(`Could not resolve a valid price for plan ${planCode}`);
-    err.status = 400;
-    throw err;
-  }
-
-  return {
-    price: numericPrice,
-    planName: match?.planName || match?.name || match?.title || match?.displayName || planCode,
-  };
 }
 
 // GET /api/plans/health
@@ -341,37 +267,16 @@ router.post("/subscriptions/renewals", async (req, res) => {
     // Try to attach this renewal to a local policy record for commission tracking.
     // If the customer isn't in our local DB (e.g. enrolled before this system
     // existed), we still return the WellaHealth result, just without local tracking.
-    const [customerRows] = await pool.execute("SELECT * FROM customers WHERE phone = ?", [phoneNumber]);
-    const customer = customerRows[0];
-    let renewalId = null;
-    let warning = null;
+    const result = await recordRenewal({
+      phoneNumber,
+      planCode,
+      amountPaid,
+      paymentReference,
+      processedByAgentId: req.user.id,
+      wellahealthResult: whResult,
+    });
 
-    if (customer) {
-      const [policyRows] = await pool.execute(
-        "SELECT * FROM policies WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1",
-        [customer.id]
-      );
-      const policy = policyRows[0];
-      if (policy) {
-        const [renewalResult] = await pool.execute(
-          `INSERT INTO renewals (policy_id, processed_by_agent_id, amount_paid, payment_reference, new_end_date)
-           VALUES (?, ?, ?, ?, ?)`,
-          [policy.id, req.user.id, amountPaid, paymentReference, whResult.endDate || null]
-        );
-        renewalId = renewalResult.insertId;
-        await pool.execute("UPDATE policies SET end_date = ?, status = ? WHERE id = ?", [
-          whResult.endDate || policy.end_date,
-          whResult.status || policy.status,
-          policy.id,
-        ]);
-      } else {
-        warning = "No local policy found for this customer — renewal recorded with WellaHealth only, not tracked for commission.";
-      }
-    } else {
-      warning = "This customer isn't in the local system — renewal recorded with WellaHealth only, not tracked for commission.";
-    }
-
-    res.status(200).json({ wellahealth: whResult, renewal_id: renewalId, warning });
+    res.status(200).json({ wellahealth: whResult, renewal_id: result.renewalId, warning: result.warning });
   } catch (err) {
     console.error("Renewal failed:", { status: err.status, message: err.message, body: err.body });
     res.status(err.status || 500).json({
@@ -381,29 +286,7 @@ router.post("/subscriptions/renewals", async (req, res) => {
   }
 });
 
-async function processBulkOrder(bulkOrderId) {
-  const [orderRows] = await pool.execute("SELECT * FROM bulk_orders WHERE id = ?", [bulkOrderId]);
-  const order = orderRows[0];
-  if (!order) throw new Error("Bulk order not found");
-  if (["completed", "partially_completed"].includes(order.status)) return order;
-  await pool.execute("UPDATE bulk_orders SET status = 'processing', paid_at = COALESCE(paid_at, NOW()) WHERE id = ?", [order.id]);
-  const [items] = await pool.execute("SELECT * FROM bulk_order_items WHERE bulk_order_id = ? AND status = 'pending'", [order.id]);
-  let failed = 0;
-  for (const item of items) {
-    try {
-      const whResult = await wellahealth.createSubscription({ amountPaid: item.amount, firstName: item.first_name, lastName: item.last_name, phoneNumber: item.phone, email: item.email || "", planCode: item.plan_code, location: item.location, gender: item.gender, dateOfBirth: item.date_of_birth, paymentReference: `${order.payment_reference}-${item.id}` });
-      const record = await createEnrollmentRecord({ userId: order.ambassador_id, firstName: item.first_name, lastName: item.last_name, phoneNumber: item.phone, email: item.email, planCode: item.plan_code, planName: item.plan_name, location: item.location, gender: item.gender, dateOfBirth: item.date_of_birth, amountPaid: item.amount, paymentReference: `${order.payment_reference}-${item.id}`, resolvedGroupId: order.group_id, wellahealthResult: whResult });
-      await pool.execute("UPDATE bulk_order_items SET status = 'completed', policy_id = ? WHERE id = ?", [record.policy_id, item.id]);
-    } catch (err) {
-      failed += 1;
-      await pool.execute("UPDATE bulk_order_items SET status = 'failed', error_message = ? WHERE id = ?", [err.message || "Enrollment failed", item.id]);
-    }
-  }
-  const [remaining] = await pool.execute("SELECT COUNT(*) AS count FROM bulk_order_items WHERE bulk_order_id = ? AND status = 'pending'", [order.id]);
-  if (!remaining[0].count) await pool.execute("UPDATE bulk_orders SET status = ? WHERE id = ?", [failed ? "partially_completed" : "completed", order.id]);
-  return order;
-}
-
+// Kept for any code that still imports these off the router.
 router.createEnrollmentRecord = createEnrollmentRecord;
 router.resolvePlanPrice = resolvePlanPrice;
 router.processBulkOrder = processBulkOrder;

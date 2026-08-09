@@ -65,6 +65,12 @@ async function ensureSchema() {
   await ensureColumn("payout_requests", "paystack_transfer_code", "VARCHAR(100)");
   await ensureColumn("payout_requests", "paid_at", "DATETIME");
   await pool.query("ALTER TABLE policies MODIFY original_agent_id INT NULL");
+
+  // Idempotency guards: unique indexes so duplicate webhook/callback
+  // deliveries cannot create a second policy, renewal, or customer.
+  await ensureUniqueIndex("customers", "uniq_customers_phone", "phone");
+  await ensureUniqueIndex("policies", "uniq_policies_payment_reference", "payment_reference");
+  await ensureUniqueIndex("renewals", "uniq_renewals_payment_reference", "payment_reference");
 }
 
 async function ensureColumn(tableName, columnName, definition) {
@@ -76,6 +82,34 @@ async function ensureColumn(tableName, columnName, definition) {
   if (!rows[0]) {
     await pool.query(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${definition}`);
   }
+}
+
+async function ensureUniqueIndex(tableName, indexName, columnName) {
+  const [indexRows] = await pool.execute(
+    `SELECT 1 FROM information_schema.statistics
+     WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?`,
+    [tableName, indexName]
+  );
+  if (indexRows[0]) return;
+
+  // Refuse to add a unique index if existing rows would violate it.
+  const [dupRows] = await pool.execute(
+    `SELECT ${columnName}, COUNT(*) AS c FROM \`${tableName}\`
+     WHERE ${columnName} IS NOT NULL
+     GROUP BY ${columnName} HAVING c > 1 LIMIT 1`
+  );
+  if (dupRows[0]) {
+    console.warn(
+      `[db] Skipping UNIQUE index ${indexName} on ${tableName}.${columnName}: ` +
+        `existing duplicates exist (e.g. value '${dupRows[0][columnName]}'). ` +
+        `Deduplicate data manually, then re-run npm run seed.`
+    );
+    return;
+  }
+
+  await pool.query(
+    `ALTER TABLE \`${tableName}\` ADD UNIQUE INDEX \`${indexName}\` (\`${columnName}\`)`
+  );
 }
 
 module.exports = { pool, ensureSchema };

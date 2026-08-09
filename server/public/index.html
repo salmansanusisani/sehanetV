@@ -7,7 +7,7 @@
 <link rel="icon" href="s.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://unpkg.com/driver.js/dist/driver.js.iife.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/driver.js/dist/driver.css">
@@ -16,34 +16,61 @@
 </head>
 <body>
 
+  <!-- Toast notifications (session warnings, errors, successes) -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
   <!-- Mobile screen container wrapper -->
   <div class="mobile-wrapper">
     <!-- Login screen -->
     <div id="loginScreen" class="login-screen">
-      <div class="login-card">
-        <div class="login-title">SehaNet</div>
-        <div class="login-subtitle">Login Console</div>
-        <label>Username</label>
-        <input id="loginUsername" autocomplete="off" />
-        <label>Password</label>
-        <input id="loginPassword" type="password" autocomplete="off" />
-        <div id="loginError" class="error-text"></div>
-        <button id="loginBtn">Log in</button>
+      <div class="login-card" id="loginCard">
+        <div class="login-brand">
+          <div class="login-brand-mark"><img src="s.png" alt="SehaNet" /></div>
+          <div>
+            <div class="login-title">SehaNet</div>
+            <div class="login-subtitle">Health plan partner portal</div>
+          </div>
+        </div>
+        <form id="loginForm" autocomplete="off">
+          <label for="loginUsername">Username</label>
+          <input id="loginUsername" autocomplete="username" placeholder="Enter your username" />
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter your password" />
+          <div id="loginError" class="error-text"></div>
+          <button id="loginBtn" class="login-submit" type="button">Log in</button>
+        </form>
         <button id="showRegisterBtn" class="login-link-btn" type="button">New customer? Create an account</button>
       </div>
+
       <div id="registerCard" class="login-card hidden">
-        <div class="login-title">Create your account</div>
-        <div class="login-subtitle">Manage your SehaNet plan online.</div>
-        <label>Full name</label><input id="reg-fullName" autocomplete="name" />
-        <label>Phone number</label><input id="reg-phone" autocomplete="tel" />
-        <label>Email address</label><input id="reg-email" type="email" autocomplete="email" />
-        <label>Location</label><input id="reg-location" />
-        <label>Date of birth</label><input id="reg-dob" type="date" />
-        <label>Gender</label><select id="reg-gender"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
-        <label>Choose username</label><input id="reg-username" autocomplete="username" />
-        <label>Create password</label><input id="reg-password" type="password" autocomplete="new-password" />
-        <div id="registerError" class="error-text"></div>
-        <button id="registerBtn" type="button">Create account</button>
+        <div class="login-brand">
+          <div class="login-brand-mark"><img src="s.png" alt="SehaNet" /></div>
+          <div>
+            <div class="login-title">Create your account</div>
+            <div class="login-subtitle">Manage your SehaNet plan online.</div>
+          </div>
+        </div>
+        <form id="registerForm" autocomplete="off">
+          <div class="grid-2">
+            <div><label>Full name</label><input id="reg-fullName" autocomplete="name" placeholder="e.g. Ada Obi" /></div>
+            <div><label>Phone number</label><input id="reg-phone" autocomplete="tel" placeholder="2348123456789" /></div>
+          </div>
+          <label>Email address</label><input id="reg-email" type="email" autocomplete="email" placeholder="you@email.com" />
+          <label>Location</label><input id="reg-location" placeholder="e.g. Lagos, Nigeria" />
+          <div class="grid-2">
+            <div>
+              <label>Date of birth</label><input id="reg-dob" type="date" />
+            </div>
+            <div>
+              <label>Gender</label>
+              <select id="reg-gender"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
+            </div>
+          </div>
+          <label>Choose username</label><input id="reg-username" autocomplete="username" placeholder="Pick a username" />
+          <label>Create password</label><input id="reg-password" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+          <div id="registerError" class="error-text"></div>
+          <button id="registerBtn" class="login-submit" type="button">Create account</button>
+        </form>
         <button id="showLoginBtn" class="login-link-btn" type="button">Back to log in</button>
       </div>
     </div>
@@ -51,24 +78,27 @@
     <!-- Main app -->
     <div id="app" class="app hidden">
       <header class="topbar">
-        <div style="display:flex; align-items:center; gap:10px;">
+        <div class="topbar-left">
           <button id="menuToggle" class="ghost-btn menu-toggle-btn" aria-label="Open menu" aria-expanded="false">
             <i data-lucide="menu" style="width:18px;height:18px;"></i>
           </button>
-          <div>
-            <div class="topbar-eyebrow">SEHANET</div>
-            <div class="topbar-title" id="userLabel"></div>
+          <div class="topbar-brand">
+            <div class="brand-mark"><img src="s.png" alt="SehaNet" /></div>
+            <div>
+              <div class="topbar-eyebrow">SEHANET</div>
+              <div class="topbar-title" id="userLabel"></div>
+            </div>
           </div>
         </div>
-        <div style="display:flex; gap:6px;">
+        <div class="topbar-actions">
           <button id="retakeTourBtn" class="ghost-btn" title="Retake Tour">
-            <i data-lucide="help-circle" style="width:14px;height:14px;"></i>
+            <i data-lucide="help-circle" style="width:14px;height:14px;"></i><span class="btn-label">Tour</span>
           </button>
           <button id="changePasswordBtn" class="ghost-btn" title="Change Password">
-            <i data-lucide="key" style="width:14px;height:14px;"></i>
+            <i data-lucide="key" style="width:14px;height:14px;"></i><span class="btn-label">Password</span>
           </button>
           <button id="logoutBtn" class="ghost-btn">
-            <i data-lucide="log-out" style="width:14px;height:14px;"></i> Log out
+            <i data-lucide="log-out" style="width:14px;height:14px;"></i><span class="btn-label">Log out</span>
           </button>
         </div>
       </header>
@@ -80,12 +110,15 @@
     </div>
 
     <!-- Password Modal -->
-    <div id="passwordModal" class="card hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:999; width:90%; max-width:380px; box-shadow:0 20px 40px rgba(0,0,0,0.3);">
-      <h2>Change Password</h2>
+    <div id="passwordModal" class="card hidden modal-card">
+      <div class="modal-header">
+        <h2>Change Password</h2>
+        <button id="pwd-close" class="modal-close" type="button" aria-label="Close">&times;</button>
+      </div>
       <div class="grid">
-        <input id="pwd-current" type="password" placeholder="Current Password" />
-        <input id="pwd-new" type="password" placeholder="New Password (min 6 chars)" />
-        <input id="pwd-confirm" type="password" placeholder="Confirm New Password" />
+        <input id="pwd-current" type="password" placeholder="Current Password" autocomplete="current-password" />
+        <input id="pwd-new" type="password" placeholder="New Password (min 6 chars)" autocomplete="new-password" />
+        <input id="pwd-confirm" type="password" placeholder="Confirm New Password" autocomplete="new-password" />
       </div>
       <div class="row" style="margin-top:10px;">
         <button class="primary" id="pwd-submit">Update Password</button>
