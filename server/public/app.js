@@ -2,7 +2,7 @@ const API_BASE = "/api";
 
 // Keep in sync with PAYMENT_FEE_NAIRA in server/config.js — the backend is
 // the source of truth for what is actually charged at checkout.
-const PAYMENT_FEE_NAIRA = 500;
+const PAYMENT_FEE_NAIRA = 50;
 
 let state = {
   token: localStorage.getItem("sehanet_token") || null,
@@ -366,7 +366,7 @@ function setupPasswordModal() {
 // ---------- Onboarding tour (Phase 7) ----------
 const TOUR_STEPS_BY_ROLE = {
   admin: [
-    { tab: "dashboard", desc: "See customer payments (including the NGN 500 payment fee), your net before and after expenses, active policies, and ambassador commission totals." },
+    { tab: "dashboard", desc: "See customer payments (including the NGN 50 payment fee), your net before and after expenses, active policies, and ambassador commission totals." },
     { tab: "team", desc: "Create and manage agents and ambassadors. Confirm bank details before approving a payment." },
     { tab: "policies", desc: "Search all customer records by name, phone, or email for follow-up." },
     { tab: "payout", desc: "Review ambassador payment requests, approve them, then use Pay now only when ready to send a real bank transfer." },
@@ -604,7 +604,7 @@ async function renderAdminDashboard() {
     content.innerHTML = `
       <div class="stat-grid">
         ${stat("wallet", "Payments recorded", money(d.revenue), "tone-teal", `${d.policyCount} policies · ${d.renewalCount} renewals`)}
-        ${stat("coins", "Payment fees collected", money(d.paymentFees), "", "NGN 500 per payment")}
+        ${stat("coins", "Payment fees collected", money(d.paymentFees), "", "NGN 50 per payment")}
         ${stat("piggy-bank", "Admin net before expenses", money(d.adminNetBeforeExpenses), "tone-gold", "Payments less commission")}
         ${stat("trending-up", "Admin net after expenses", money(d.adminNetAfterExpenses), "", `Your ${d.wellahealthPercent}% WellaHealth cut (${money(d.wellahealthCut)}) + fees, less commission`)}
         ${stat("trending-up", "Ambassador commission owed", money(d.ambassadorOutstanding), "", `${d.customerCount} customers`)}
@@ -612,7 +612,7 @@ async function renderAdminDashboard() {
         ${stat("users", "Customers", d.customerCount, "")}
         ${stat("shield-check", "Active policies", d.activePolicies, "")}
       </div>
-      <div class="card note-card"><div class="muted">“Admin net before expenses” is recorded customer payments (including the NGN 500 payment fee) less ambassador commission. “Admin net after expenses” is the admin’s actual income: your ${d.wellahealthPercent}% WellaHealth cut of plan payments, plus payment fees, less ambassador commission owed.</div></div>
+      <div class="card note-card"><div class="muted">“Admin net before expenses” is recorded customer payments (including the NGN 50 payment fee) less ambassador commission. “Admin net after expenses” is the admin’s actual income: your ${d.wellahealthPercent}% WellaHealth cut of plan payments, plus payment fees, less ambassador commission owed.</div></div>
     `;
     if (window.lucide) window.lucide.createIcons();
   } catch (err) { renderError(content, err); }
@@ -2224,7 +2224,7 @@ const MANUAL_COMMISSION_ENGINE = `
   <h2>How Commission Works</h2>
   <p>SehaNet's money model is simple. When a customer pays for a plan:</p>
   <ol>
-    <li>The customer pays the <strong>plan price</strong>, plus a fixed <strong>NGN 500 payment fee</strong> at every checkout (one fee per transaction, even for bulk enrollments).</li>
+    <li>The customer pays the <strong>plan price</strong>, plus a fixed <strong>NGN 50 payment fee</strong> at every checkout (one fee per transaction, even for bulk enrollments).</li>
     <li><strong>WellaHealth's cut to admin</strong> (the percentage in Commission Settings) is the share of the plan price that comes to the business. This is the admin's income from the sale.</li>
     <li>An <strong>Ambassador's commission</strong> is a percentage of that WellaHealth cut — <em>not</em> a percentage of the full customer payment. A different rate applies to new enrollments vs. renewals.</li>
   </ol>
@@ -2232,7 +2232,7 @@ const MANUAL_COMMISSION_ENGINE = `
   <ul>
     <li>WellaHealth cut to admin: NGN 5,000 × 20% = <strong>NGN 1,000</strong></li>
     <li>Ambassador commission: NGN 1,000 × 30% = <strong>NGN 300</strong></li>
-    <li>Admin net after expenses: NGN 1,000 + NGN 500 fee − NGN 300 = <strong>NGN 1,200</strong></li>
+    <li>Admin net after expenses: NGN 1,000 + NGN 50 fee − NGN 300 = <strong>NGN 750</strong></li>
   </ul>
   <p>Rates are snapshotted at the moment of sale. Changing Commission Settings only affects future activity — it never rewrites a commission that was already earned.</p>
 `;
@@ -2246,7 +2246,7 @@ const MANUAL_BY_ROLE = {
     <p>The Dashboard is a live summary of the whole business. It shows:</p>
     <ul>
       <li><strong>Payments recorded</strong> — total money that came in from policies and renewals (plan prices plus payment fees).</li>
-      <li><strong>Payment fees collected</strong> — total NGN 500 fees charged across all checkouts.</li>
+      <li><strong>Payment fees collected</strong> — total NGN 50 fees charged across all checkouts.</li>
       <li><strong>Admin net before expenses</strong> — all recorded payments less ambassador commission owed.</li>
       <li><strong>Admin net after expenses</strong> — your actual income: the WellaHealth cut (plan payments × the % set in Commission Settings), plus payment fees, less ambassador commission owed. See "How Commission Works" below.</li>
       <li><strong>Ambassador commission owed / paid</strong> — what ambassadors have earned and what has already been paid out. The gap is the outstanding balance.</li>
@@ -2302,13 +2302,13 @@ const MANUAL_BY_ROLE = {
     <p>When an Ambassador requests a payment from My Earnings, it appears here with their available balance. <strong>Approve</strong> to accept it, <strong>Reject</strong> to decline (optionally leaving a note), or <strong>Pay now</strong> to send the money immediately via Paystack. Only approve amounts you're sure about.</p>
 
     <h2>Enroll</h2>
-    <p>Register a single customer exactly like an Agent would: fill in their details, pick a plan (the price plus the NGN 500 payment fee is shown), and click <strong>Enroll</strong>. The customer is taken to the secure Paystack checkout and, once payment succeeds, their WellaHealth policy is created automatically. The same phone number can never be enrolled twice.</p>
+    <p>Register a single customer exactly like an Agent would: fill in their details, pick a plan (the price plus the NGN 50 payment fee is shown), and click <strong>Enroll</strong>. The customer is taken to the secure Paystack checkout and, once payment succeeds, their WellaHealth policy is created automatically. The same phone number can never be enrolled twice.</p>
 
     <h2>Look Up</h2>
     <p>Find any customer by <strong>phone number</strong> or <strong>WellaHealth policy number</strong>. Results show the full subscription details, including nested payment information.</p>
 
     <h2>Renew</h2>
-    <p>Renew any customer in the system: enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the Paystack checkout (plan price + NGN 500 fee) and their policy end date is extended automatically.</p>
+    <p>Renew any customer in the system: enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the Paystack checkout (plan price + NGN 50 fee) and their policy end date is extended automatically.</p>
 
     ${MANUAL_COMMISSION_ENGINE}
 
@@ -2329,7 +2329,7 @@ const MANUAL_BY_ROLE = {
     <ol>
       <li>Pick the Group this customer belongs to (or create a new one).</li>
       <li>Fill in the customer's <strong>first name, last name, phone number</strong> (in the format 2348...), email (optional), <strong>location, gender, and date of birth</strong>.</li>
-      <li>Choose a plan from the cards. The summary shows the plan price plus the <strong>NGN 500 payment fee</strong> you'll collect.</li>
+      <li>Choose a plan from the cards. The summary shows the plan price plus the <strong>NGN 50 payment fee</strong> you'll collect.</li>
       <li>Click <strong>Enroll</strong> — the customer is taken to the secure Paystack checkout. When payment succeeds, their WellaHealth policy is created automatically and you'll see the confirmation.</li>
     </ol>
     <p><strong>You can't enroll the same phone number twice.</strong> If someone is already a customer, use <strong>Renew</strong> instead.</p>
@@ -2339,7 +2339,7 @@ const MANUAL_BY_ROLE = {
     <ol>
       <li>Choose your <strong>Group</strong> and one <strong>plan</strong> for the whole batch.</li>
       <li>Click <strong>Add person</strong> to fill in each customer's details (a name, phone, location, date of birth, and gender are required for every person).</li>
-      <li>Click <strong>Review &amp; pay</strong>. You'll see the total (all plan prices plus a single NGN 500 payment fee for the batch) and confirm.</li>
+      <li>Click <strong>Review &amp; pay</strong>. You'll see the total (all plan prices plus a single NGN 50 payment fee for the batch) and confirm.</li>
       <li>The batch opens in the secure Paystack checkout. Once paid, SehaNet creates each customer's policy automatically.</li>
     </ol>
     <p>All phone numbers in a batch must be different, and none may already be enrolled.</p>
@@ -2351,7 +2351,7 @@ const MANUAL_BY_ROLE = {
     <p>Find any customer in the system by <strong>phone number</strong> or <strong>policy number</strong> — useful for checking a customer's plan before renewing them.</p>
 
     <h2>Renew</h2>
-    <p>You can renew <strong>any</strong> customer, not just ones you enrolled. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout (plan price + NGN 500 fee) and their policy end date extends automatically.</p>
+    <p>You can renew <strong>any</strong> customer, not just ones you enrolled. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout (plan price + NGN 50 fee) and their policy end date extends automatically.</p>
 
     <h2>My Groups</h2>
     <p>A list of every Group you've created, with its type and when it was made.</p>
@@ -2378,7 +2378,7 @@ const MANUAL_BY_ROLE = {
     <h2>Enroll</h2>
     <ol>
       <li>Fill in the customer's <strong>first name, last name, phone number</strong> (format 2348...), email (optional), <strong>location, gender, and date of birth</strong>.</li>
-      <li>Choose a plan from the cards. The summary shows the plan price plus the <strong>NGN 500 payment fee</strong> charged at checkout.</li>
+      <li>Choose a plan from the cards. The summary shows the plan price plus the <strong>NGN 50 payment fee</strong> charged at checkout.</li>
       <li>Click <strong>Enroll</strong> — the customer is taken to the secure Paystack checkout. When payment succeeds, their WellaHealth policy is created automatically.</li>
     </ol>
     <p><strong>You can't enroll the same phone number twice.</strong> If someone is already a customer, use <strong>Renew</strong> instead.</p>
@@ -2390,7 +2390,7 @@ const MANUAL_BY_ROLE = {
     <p>Find any customer by <strong>phone number</strong> or <strong>WellaHealth policy number</strong> — handy before renewing someone.</p>
 
     <h2>Renew</h2>
-    <p>You can renew <strong>any</strong> customer in the system. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout (plan price + NGN 500 fee) and their policy end date extends automatically.</p>
+    <p>You can renew <strong>any</strong> customer in the system. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout (plan price + NGN 50 fee) and their policy end date extends automatically.</p>
 
     <h2>My Enrollments</h2>
     <p>Everyone you've personally signed up, with their current status (Active, Cancelled, Expired, etc.) and when they were enrolled. Use this for follow-up.</p>
@@ -2411,7 +2411,7 @@ const MANUAL_BY_ROLE = {
     <p>Buy a health plan:</p>
     <ol>
       <li>Fill in your details (your phone number must match the one on your account).</li>
-      <li>Choose a plan. The summary shows the plan price plus the <strong>NGN 500 payment fee</strong> added at checkout.</li>
+      <li>Choose a plan. The summary shows the plan price plus the <strong>NGN 50 payment fee</strong> added at checkout.</li>
       <li>Click <strong>Enroll</strong> — you're taken to the secure Paystack checkout to pay by card.</li>
     </ol>
     <p>Once payment succeeds, your policy is created automatically. Your phone number can only be enrolled once.</p>

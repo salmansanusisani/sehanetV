@@ -130,6 +130,10 @@ button { font-family: inherit; }
   font-size: 0.7rem;
   line-height: 1.35;
   pointer-events: none;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
 }
 
 .site-footer a { color: inherit; pointer-events: auto; }
