@@ -1,6 +1,6 @@
 // Shared business constants.
-// Keep PAYMENT_FEE_NAIRA in sync with PAYMENT_FEE_NAIRA in public/app.js —
-// the backend is the source of truth for what is actually charged.
+// Payment fee is currently 0 (no charge). If it is ever reintroduced, this
+// is the single source of truth for what is actually charged at checkout.
 module.exports = {
-  PAYMENT_FEE_NAIRA: 50,
+  PAYMENT_FEE_NAIRA: 0,
 };

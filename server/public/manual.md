@@ -48,8 +48,7 @@ one (at least 6 characters), type it again to confirm, and click **Update**.
 
 SehaNet's money model is simple. When a customer pays for a plan:
 
-1. The customer pays the **plan price**, plus a fixed **NGN 50 payment fee** at every
-   checkout — one fee per transaction, even for a bulk enrollment of many people.
+1. The customer pays the **plan price**.
 2. **WellaHealth's cut to admin** (the percentage set in Commission Settings) is the
    share of the plan price that comes to the business. This is the admin's income from
    the sale.
@@ -62,7 +61,7 @@ ambassador rate:
 
 - WellaHealth cut to admin: NGN 5,000 × 20% = **NGN 1,000**
 - Ambassador commission: NGN 1,000 × 30% = **NGN 300**
-- Admin net after expenses: NGN 1,000 + NGN 50 fee − NGN 300 = **NGN 750**
+- Admin net after expenses: NGN 1,000 − NGN 300 = **NGN 700**
 
 Rates are snapshotted at the moment of sale. Changing Commission Settings only affects
 future activity — it never rewrites a commission that was already earned.
@@ -77,12 +76,10 @@ The admin can see every tab in the app. Here is what each one does.
 
 A live summary of the whole business:
 
-- **Payments recorded** — total money in from policies and renewals (plan prices plus
-  payment fees).
-- **Payment fees collected** — total NGN 50 fees charged across all checkouts.
+- **Payments recorded** — total money in from policies and renewals.
 - **Admin net before expenses** — all recorded payments less ambassador commission owed.
 - **Admin net after expenses** — your actual income: the WellaHealth cut (plan payments
-  × the % in Commission Settings), plus payment fees, less ambassador commission owed.
+  × the % in Commission Settings), less ambassador commission owed.
   See [How Commission Works](#how-commission-works).
 - **Ambassador commission owed / paid** — what ambassadors have earned and what has been
   paid out. The gap is the outstanding balance.
@@ -171,7 +168,7 @@ This is where Ambassadors actually get paid.
 ### Enroll
 
 Register a single customer exactly like an Agent would: fill in their details, pick a
-plan (the price plus the NGN 50 payment fee is shown), and click **Enroll**. The
+plan (the price is shown), and click **Enroll**. The
 customer is taken to the secure Paystack checkout and, once payment succeeds, their
 WellaHealth policy is created automatically. The same phone number can never be enrolled
 twice.
@@ -184,7 +181,7 @@ full subscription details, including nested payment information.
 ### Renew
 
 Renew any customer in the system: enter their phone number, choose a plan, and click
-**Renew**. They pay via the Paystack checkout (plan price + NGN 50 fee) and their
+**Renew**. They pay via the Paystack checkout and their
 policy end date is extended automatically.
 
 ### Security notes
@@ -213,8 +210,7 @@ from the dropdown.
 1. Pick the Group this customer belongs to (or create a new one).
 2. Fill in the customer's **first name, last name, phone number** (format 2348...),
    email (optional), **location, gender, and date of birth**.
-3. Choose a plan from the cards. The summary shows the plan price plus the **NGN 50
-   payment fee** you'll collect.
+3. Choose a plan from the cards. The summary shows the plan price.
 4. Click **Enroll** — the customer is taken to the secure Paystack checkout. When
    payment succeeds, their WellaHealth policy is created automatically and you'll see
    the confirmation.
@@ -229,8 +225,8 @@ For up to **20 people on the same plan** in one payment:
 1. Choose your **Group** and one **plan** for the whole batch.
 2. Click **Add person** to fill in each customer's details (a name, phone, location,
    date of birth, and gender are required for every person).
-3. Click **Review & pay**. You'll see the total — all plan prices plus a single NGN 50
-   payment fee for the batch — and confirm.
+3. Click **Review & pay**. You'll see the total — all plan prices for the batch — and
+   confirm.
 4. The batch opens in the secure Paystack checkout. Once paid, SehaNet creates each
    customer's policy automatically.
 
@@ -250,8 +246,8 @@ checking a customer's plan before renewing them.
 ### Renew
 
 You can renew **any** customer, not just ones you enrolled. Enter their phone number,
-choose a plan, and click **Renew**. They pay via the secure checkout (plan price + NGN
-500 fee) and their policy end date extends automatically.
+choose a plan, and click **Renew**. They pay via the secure checkout and their policy
+end date extends automatically.
 
 ### My Groups
 
@@ -287,8 +283,7 @@ don't use Groups.
 
 1. Fill in the customer's **first name, last name, phone number** (format 2348...),
    email (optional), **location, gender, and date of birth**.
-2. Choose a plan from the cards. The summary shows the plan price plus the **NGN 50
-   payment fee** charged at checkout.
+2. Choose a plan from the cards. The summary shows the plan price.
 3. Click **Enroll** — the customer is taken to the secure Paystack checkout. When
    payment succeeds, their WellaHealth policy is created automatically.
 
@@ -308,8 +303,8 @@ renewing someone.
 ### Renew
 
 You can renew **any** customer in the system. Enter their phone number, choose a plan,
-and click **Renew**. They pay via the secure checkout (plan price + NGN 50 fee) and
-their policy end date extends automatically.
+and click **Renew**. They pay via the secure checkout and their policy end date extends
+automatically.
 
 ### My Enrollments
 
@@ -337,8 +332,7 @@ it expires.
 Buy a health plan:
 
 1. Fill in your details (your phone number must match the one on your account).
-2. Choose a plan. The summary shows the plan price plus the **NGN 50 payment fee**
-   added at checkout.
+2. Choose a plan. The summary shows the plan price.
 3. Click **Enroll** — you're taken to the secure Paystack checkout to pay by card.
 
 Once payment succeeds, your policy is created automatically. Your phone number can only
