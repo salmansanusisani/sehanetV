@@ -8,6 +8,7 @@ let state = {
   token: localStorage.getItem("sehanet_token") || null,
   user: null,
   activeTab: null,
+  pendingRenewalPhone: null,
 };
 
 // ---------- API helper ----------
@@ -495,14 +496,15 @@ const TABS_BY_ROLE = {
     ["renew", "Renew"],
   ],
   ambassador: [
-    ["enroll", "Enroll"],
-    ["bulkenroll", "Bulk Enroll"],
-    ["renewalsdue", "Renewals Due"],
-    ["lookup", "Look Up"],
-    ["renew", "Renew"],
-    ["mygroups", "My Groups"],
-    ["mysummary", "My Earnings"],
-  ],
+  ["dashboard", "Dashboard"],
+  ["enroll", "Enroll"],
+  ["bulkenroll", "Bulk Enroll"],
+  ["renewalsdue", "Renewals Due"],
+  ["lookup", "Look Up"],
+  ["renew", "Renew"],
+  ["mygroups", "My Groups"],
+  ["mysummary", "My Earnings"],
+],
   agent: [
     ["enroll", "Enroll"],
     ["renewalsdue", "Renewals Due"],
@@ -564,7 +566,7 @@ function setActiveTab(key) {
   state.activeTab = key;
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === key));
   const views = {
-    dashboard: renderAdminDashboard,
+  dashboard: renderDashboardRouter,
     team: renderTeamView,
     policies: renderPoliciesView,
     renewalsdue: renderRenewalsDueView,
@@ -617,7 +619,119 @@ async function renderAdminDashboard() {
     if (window.lucide) window.lucide.createIcons();
   } catch (err) { renderError(content, err); }
 }
+function renderDashboardRouter() {
+  if (state.user.role === "ambassador") return renderAmbassadorDashboard();
+  return renderAdminDashboard();
+}
 
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function dashStat(icon, value, label, tone = "") {
+  return `
+    <div class="stat-card ${tone}">
+      <div class="stat-icon"><i data-lucide="${icon}"></i></div>
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${value}</div>
+    </div>`;
+}
+
+function groupTypeTone(type) {
+  return { Bank: "", Market: "tone-gold", School: "tone-bright", Association: "tone-deep" }[type] || "tone-other";
+}
+
+function communityCardHtml(g) {
+  const initial = esc((g.name || "?").trim().charAt(0).toUpperCase() || "?");
+  const created = g.created_at ? String(g.created_at).split("T")[0].split(" ")[0] : "";
+  return `
+    <div class="community-card">
+      <div class="avatar-badge ${groupTypeTone(g.type)}">${initial}</div>
+      <div class="community-card-body">
+        <div class="community-card-name">${esc(g.name)}</div>
+        <span class="plan-tag">${esc(g.type)}</span>
+        ${created ? `<div class="community-card-meta">Created ${created}</div>` : ""}
+      </div>
+    </div>`;
+}
+
+async function renderAmbassadorDashboard() {
+  const container = document.getElementById("views");
+  const firstName = esc((state.user.name || "").split(" ")[0] || state.user.name || "");
+
+  container.innerHTML = `
+    <div class="dash-greeting">
+      <p class="dash-greeting-eyebrow">${getGreeting()}</p>
+      <h1 class="dash-greeting-name">${firstName}</h1>
+    </div>
+    <div id="dash-stats" class="stat-grid"></div>
+    <div class="section-block">
+      <h2 class="section-title">Quick actions</h2>
+      <div class="quick-actions">
+        <button class="qa-btn" data-tab="enroll"><span class="qa-icon"><i data-lucide="user-plus"></i></span>Enroll</button>
+        <button class="qa-btn" data-tab="bulkenroll"><span class="qa-icon"><i data-lucide="users-round"></i></span>Bulk enroll</button>
+        <button class="qa-btn" data-tab="renew"><span class="qa-icon"><i data-lucide="repeat"></i></span>Renew</button>
+        <button class="qa-btn" data-tab="lookup"><span class="qa-icon"><i data-lucide="search"></i></span>Find</button>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-title-row">
+        <h2 class="section-title">My communities</h2>
+        <button class="link-btn" data-tab="mygroups">See all</button>
+      </div>
+      <div id="dash-communities"></div>
+    </div>
+  `;
+
+  const bindTabButtons = () => {
+    container.querySelectorAll("[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
+    });
+  };
+  bindTabButtons();
+
+  const statsEl = document.getElementById("dash-stats");
+  const communitiesEl = document.getElementById("dash-communities");
+  renderLoading(statsEl, "Loading your numbers…");
+  renderLoading(communitiesEl, "Loading communities…");
+
+  try {
+    const [summary, earnings, renewalsDue, groups] = await Promise.all([
+      api("/me/summary"),
+      api("/me/earnings"),
+      api("/me/renewals-due"),
+      api("/groups/mine"),
+    ]);
+
+    const money = (v) => `NGN ${Number(v || 0).toLocaleString()}`;
+    statsEl.innerHTML = [
+      dashStat("users", summary.total_enrollments || 0, "Customers"),
+      dashStat("clock", renewalsDue.length || 0, "Renewals due", renewalsDue.length ? "tone-gold" : ""),
+      dashStat("wallet", money(earnings.available), "Available"),
+      dashStat("trending-up", money(earnings.earned), "Lifetime commission"),
+    ].join("");
+
+    if (!groups.length) {
+      communitiesEl.innerHTML = `
+        <div class="empty-state-card">
+          <div class="avatar-badge tone-other"><i data-lucide="layers"></i></div>
+          <p>You haven't created a community yet. Communities help you organize customers by bank, market, school, or group.</p>
+          <button class="primary" data-tab="enroll">Create your first community</button>
+        </div>`;
+    } else {
+      communitiesEl.innerHTML = groups.slice(0, 5).map(communityCardHtml).join("");
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+    bindTabButtons();
+  } catch (err) {
+    renderError(statsEl, err);
+    communitiesEl.innerHTML = "";
+  }
+}
 
 function out(id, data) {
   const el = document.getElementById(id);
@@ -1404,17 +1518,17 @@ async function renderPoliciesView() {
   }
 }
 
-// ---------- Renewals Due Soon View (Prompt 5.2) ----------
+// ---------- Renewals Due Soon View ----------
 async function renderRenewalsDueView() {
   const container = document.getElementById("views");
   const isAdmin = state.user.role === "admin";
 
   container.innerHTML = `
-    <div class="card">
-      <h2>Upcoming Renewals Due</h2>
-      <p class="muted">${isAdmin ? "All customer policies due for renewal in the next 14 days." : "Your customer policies expiring soon. Contact customers to process renewals."}</p>
-      <div id="rd-list"></div>
+    <div class="page-head">
+      <h1>Renewals due</h1>
+      <p class="muted">${isAdmin ? "Every customer policy due for renewal in the next 14 days." : "Your customers whose plans expire soon — call them and renew before cover lapses."}</p>
     </div>
+    <div id="rd-list"></div>
   `;
 
   const listEl = document.getElementById("rd-list");
@@ -1429,45 +1543,48 @@ async function renderRenewalsDueView() {
       return;
     }
 
-    listEl.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Customer</th>
-            <th>Phone</th>
-            <th>Plan</th>
-            <th>Agent/Ambassador</th>
-            <th>End Date</th>
-            <th>Due In</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data
-            .map((r) => {
-              const daysRemaining = typeof r.days_remaining === "number" ? r.days_remaining : 0;
-              const isUrgent = daysRemaining <= 3;
-              const urgentClass = isUrgent ? "urgent-row" : "";
-              const formattedEndDate = r.end_date ? r.end_date.split("T")[0] : "—";
-              const dueText = daysRemaining === 0 ? "Today" : daysRemaining === 1 ? "Tomorrow" : `${daysRemaining} days`;
+    const urgentCount = data.filter((r) => (r.days_remaining ?? 0) <= 3).length;
 
-              return `
-                <tr class="${urgentClass}">
-                  <td><strong>${r.customer_name || "—"}</strong></td>
-                  <td><a href="tel:${r.customer_phone}" style="color:var(--teal); font-weight:600; text-decoration:none;">${r.customer_phone || "—"}</a></td>
-                  <td>${r.plan_name || r.plan_code}</td>
-                  <td>${r.agent_name || `User #${r.original_agent_id}`}</td>
-                  <td>${formattedEndDate}</td>
-                  <td><span class="badge ${isUrgent ? "badge-failed" : "badge-pending"}">${dueText}</span></td>
-                </tr>
-              `;
-            })
-            .join("")}
-        </tbody>
-      </table>
+    listEl.innerHTML = `
+      ${urgentCount ? `<div class="alert-error" style="margin-bottom:14px;">⚠️ ${urgentCount} ${urgentCount === 1 ? "policy expires" : "policies expire"} within 3 days — follow up first.</div>` : ""}
+      ${data.map(renewalCardHtml).join("")}
     `;
-  } catch (err) {
+    if (window.lucide) window.lucide.createIcons();
+
+    listEl.querySelectorAll("[data-renew-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.pendingRenewalPhone = btn.dataset.phone || "";
+        setActiveTab("renew");
+      });
+    });
+    } catch (err) {
     renderError(listEl, err);
   }
+}
+
+function renewalCardHtml(r) {
+  const daysRemaining = typeof r.days_remaining === "number" ? r.days_remaining : 0;
+  const isUrgent = daysRemaining <= 3;
+  const dueText = daysRemaining === 0 ? "Today" : daysRemaining === 1 ? "Tomorrow" : `${daysRemaining} days`;
+  const initial = esc((r.customer_name || "?").trim().charAt(0).toUpperCase() || "?");
+  const phone = r.customer_phone || "";
+  const formattedEndDate = r.end_date ? r.end_date.split("T")[0] : "—";
+  const metaLine = [r.plan_name || r.plan_code, r.agent_name ? `enrolled by ${r.agent_name}` : ""].filter(Boolean).join(" · ");
+
+  return `
+    <div class="renewal-card ${isUrgent ? "urgent" : ""}">
+      <div class="avatar-badge ${isUrgent ? "tone-gold" : ""}">${initial}</div>
+      <div class="renewal-body">
+        <div class="renewal-name">${esc(r.customer_name || "—")}</div>
+        ${metaLine ? `<div class="renewal-meta">${esc(metaLine)}</div>` : ""}
+        <div class="renewal-meta">Ends ${formattedEndDate}</div>
+        <div class="renewal-actions">
+          ${phone ? `<a class="subtle call-link" href="tel:${phone}"><i data-lucide="phone" style="width:14px;height:14px;"></i> Call</a>` : ""}
+          <button class="primary" data-renew-tab data-phone="${esc(phone)}">Renew</button>
+        </div>
+      </div>
+      <span class="badge ${isUrgent ? "badge-failed" : "badge-pending"}">${dueText}</span>
+    </div>`;
 }
 
 // ---------- Admin: Groups (read-only) ----------
@@ -1820,21 +1937,36 @@ async function renderPayoutView() {
 // ---------- Ambassador: My Groups ----------
 async function renderMyGroupsView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>My Groups</h2><div id="mg-list"></div></div>`;
+  container.innerHTML = `
+    <div class="page-head">
+      <h1>My communities</h1>
+      <p class="muted">Every bank, market, school, or association you've registered.</p>
+    </div>
+    <button class="primary" id="mg-create-btn" style="width:100%; margin-bottom:16px;">+ Create community</button>
+    <div id="mg-list"></div>
+  `;
+
+  document.getElementById("mg-create-btn").addEventListener("click", () => setActiveTab("enroll"));
+
   const listEl = document.getElementById("mg-list");
-  renderLoading(listEl, "Loading your groups…");
+  renderLoading(listEl, "Loading your communities…");
 
   try {
     const groups = await api("/groups/mine");
     if (groups.length === 0) {
-      renderEmptyState(listEl, "No groups created yet — create one from the Enroll tab", "layers");
-      return;
+      listEl.innerHTML = `
+        <div class="empty-state-card">
+          <div class="avatar-badge tone-other"><i data-lucide="layers"></i></div>
+          <p>No communities yet. Create one when you enroll your first customer from a bank, market, school, or association.</p>
+          <button class="primary" data-tab="enroll">Create your first community</button>
+        </div>`;
+      listEl.querySelectorAll("[data-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => setActiveTab(btn.dataset.tab));
+      });
+    } else {
+      listEl.innerHTML = groups.map(communityCardHtml).join("");
     }
-    listEl.innerHTML = `
-      <table>
-        <thead><tr><th>Name</th><th>Type</th><th>Created</th></tr></thead>
-        <tbody>${groups.map(g => `<tr><td>${g.name}</td><td>${g.type}</td><td>${g.created_at}</td></tr>`).join("")}</tbody>
-      </table>`;
+    if (window.lucide) window.lucide.createIcons();
   } catch (err) {
     renderError(listEl, err);
   }
@@ -1843,54 +1975,83 @@ async function renderMyGroupsView() {
 // ---------- Ambassador: My Earnings ----------
 async function renderMySummaryView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="page-head"><h1>My Earnings</h1><p class="muted">Your commission, payment requests, and payout history.</p></div><div id="ms-content"></div>`;
+  container.innerHTML = `<div class="page-head"><h1>My earnings</h1><p class="muted">Your commission, withdrawal requests, and payment history.</p></div><div id="ms-content"></div>`;
   const contentEl = document.getElementById("ms-content");
   renderLoading(contentEl, "Calculating your earnings…");
 
   try {
     const s = await api("/me/earnings");
     const money = (v) => `NGN ${Number(v || 0).toLocaleString()}`;
-    const stat = (icon, label, value, tone = "", hint = "") => `
-      <div class="stat-card ${tone}">
-        <div class="stat-icon"><i data-lucide="${icon}"></i></div>
-        <div class="stat-label">${label}</div>
-        <div class="stat-value">${value}</div>
-        ${hint ? `<div class="stat-hint">${hint}</div>` : ""}
-      </div>`;
+
     contentEl.innerHTML = `
       <div class="stat-grid">
-        ${stat("wallet", "Available to request", money(s.available), "tone-teal")}
-        ${stat("check-circle-2", "Already paid", money(s.paid), "tone-gold")}
-        ${stat("trending-up", "Lifetime commission", money(s.earned), "", `${money(s.pending)} currently requested`)}
+        ${dashStat("wallet", money(s.available), "Available to request")}
+        ${dashStat("check-circle-2", money(s.paid), "Already paid")}
+        ${dashStat("trending-up", money(s.earned), "Lifetime commission")}
       </div>
+
       <div class="card">
-        <h3>Request payout</h3>
-        <div class="grid">
-          <input id="payout-request-amount" type="number" min="1" max="${s.available}" placeholder="Amount in NGN" />
-          <input id="payout-request-note" placeholder="Optional note to admin" />
-        </div>
-        <button class="primary" id="payout-request-submit">Request payment</button>
+        <h3>Request withdrawal</h3>
+        <p class="muted" style="margin-top:-6px;">You can request up to ${money(s.available)}.</p>
+        <label class="field-label" for="payout-request-amount">Amount</label>
+        <input id="payout-request-amount" type="number" min="1" max="${s.available}" placeholder="Amount in NGN" />
+        <label class="field-label" for="payout-request-note" style="margin-top:10px;">Note to admin (optional)</label>
+        <input id="payout-request-note" placeholder="e.g. For transport this week" />
+        <button class="primary" id="payout-request-submit" style="width:100%; margin-top:12px;">Request payment</button>
         <div id="payout-request-output"></div>
       </div>
-      <div class="card">
-        <h3>Request history</h3>
-        ${s.requests.length ? `<table><thead><tr><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${s.requests.map(r => `<tr><td><strong>NGN ${Number(r.requested_amount).toLocaleString()}</strong></td><td><span class="badge ${r.status === "rejected" ? "badge-failed" : r.status === "paid" ? "badge-success" : "badge-pending"}">${r.status}</span></td><td>${r.created_at}</td></tr>`).join("")}</tbody></table>` : `<div class="muted">No payment requests yet.</div>`}
+
+      <div class="section-block">
+        <h2 class="section-title">Request history</h2>
+        <div id="ms-history"></div>
       </div>
     `;
     if (window.lucide) window.lucide.createIcons();
+
+    const historyEl = document.getElementById("ms-history");
+    if (!s.requests.length) {
+      renderEmptyState(historyEl, "No payment requests yet.", "receipt");
+    } else {
+      historyEl.innerHTML = s.requests.map(earningsHistoryCardHtml).join("");
+    }
+
     document.getElementById("payout-request-submit").addEventListener("click", () => {
       runWithLoading(document.getElementById("payout-request-submit"), "Requesting…", async () => {
         const output = document.getElementById("payout-request-output");
         try {
-          const result = await api("/me/payout-requests", { method: "POST", body: JSON.stringify({ amount: document.getElementById("payout-request-amount").value, note: document.getElementById("payout-request-note").value }) });
+          const result = await api("/me/payout-requests", {
+            method: "POST",
+            body: JSON.stringify({
+              amount: document.getElementById("payout-request-amount").value,
+              note: document.getElementById("payout-request-note").value,
+            }),
+          });
           out("payout-request-output", result);
           setTimeout(renderMySummaryView, 900);
-        } catch (err) { renderError(output, err); }
+        } catch (err) {
+          renderError(output, err);
+        }
       });
     });
   } catch (err) {
     renderError(contentEl, err);
   }
+}
+
+function earningsHistoryCardHtml(r) {
+  const statusLabel = { pending: "Pending", approved: "Approved", paid: "Paid", rejected: "Rejected", cancelled: "Cancelled" }[r.status] || r.status;
+  const badgeClass = r.status === "rejected" ? "badge-failed" : r.status === "paid" ? "badge-active" : "badge-pending";
+  const date = r.created_at ? String(r.created_at).split("T")[0].split(" ")[0] : "";
+  const note = r.admin_note || r.note;
+  return `
+    <div class="earnings-history-card status-${esc(r.status)}">
+      <div>
+        <div class="earnings-history-amount">NGN ${Number(r.requested_amount).toLocaleString()}</div>
+        <div class="earnings-history-meta">${esc(date)}</div>
+        ${note ? `<div class="earnings-history-note">${esc(note)}</div>` : ""}
+      </div>
+      <span class="badge ${badgeClass}">${esc(statusLabel)}</span>
+    </div>`;
 }
 
 // Helper: Calculate ISO week string (e.g. 2026-W30)
@@ -1909,62 +2070,119 @@ async function renderEnrollView() {
   const container = document.getElementById("views");
   const isAmbassador = state.user.role === "ambassador";
 
-  let groupOptions = "";
+  let groups = [];
   if (isAmbassador) {
-    try {
-      const groups = await api("/groups/mine");
-      groupOptions = groups.map(g => `<option value="${g.id}">${g.name} (${g.type})</option>`).join("");
-    } catch {}
+    try { groups = await api("/groups/mine"); } catch {}
   }
+  const groupOptionsHtml = groups.map((g) => `<option value="${g.id}">${esc(g.name)} (${esc(g.type)})</option>`).join("");
+
+  const step = (n) => (isAmbassador ? n + 1 : n); // ambassadors get an extra step (community)
 
   container.innerHTML = `
-    ${isAmbassador ? `
+    <div class="page-head"><h1>Enroll a customer</h1><p class="muted">Follow the steps below — payment happens securely at the end.</p></div>
     <div class="card">
-      <h2>Create a Group</h2>
-      <p class="muted">Create one before enrolling if this is a new bank/market/school you're working.</p>
-      <div class="grid">
-        <input id="g-name" placeholder="Group name (e.g. GTBank Lagos Staff)" />
-        <select id="g-type">
-          <option value="Bank">Bank</option>
-          <option value="Market">Market</option>
-          <option value="School">School</option>
-          <option value="Association">Association</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <button class="primary" id="g-create">Create Group</button>
-      <pre class="output" id="g-output"></pre>
-    </div>` : ""}
-
-    <div class="card">
-      <h2>Enroll Customer</h2>
-      <div class="grid">
-        <input id="e-firstName" placeholder="First name" />
-        <input id="e-lastName" placeholder="Last name" />
-        <input id="e-phoneNumber" placeholder="Phone number (2348...)" />
-        <input id="e-email" placeholder="Email (optional)" />
-        <div style="grid-column:1 / -1">
-          <label class="muted">Choose a plan</label>
-          <div id="e-planCards" class="plan-card-wrap">Fetching available health plans…</div>
-          <div id="e-planSummary" class="plan-summary muted">Select a plan to continue.</div>
+      ${isAmbassador ? `
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">1</span>
+          <div><div class="step-title">Select community</div><div class="step-subtitle">Which group is this customer part of?</div></div>
         </div>
+        <label class="field-label" for="e-groupId">Community</label>
+        <select id="e-groupId">
+          <option value="">Choose community…</option>
+          ${groupOptionsHtml}
+        </select>
+        <button type="button" class="create-community-btn" id="show-create-group">+ Create new community</button>
+        <div id="inline-create-group" class="inline-create-community hidden">
+          <div>
+            <label class="field-label" for="g-name">Community name</label>
+            <input id="g-name" placeholder="e.g. GTBank Lagos Staff" />
+          </div>
+          <div>
+            <label class="field-label" for="g-type">Community type</label>
+            <select id="g-type">
+              <option value="Bank">Bank</option>
+              <option value="Market">Market</option>
+              <option value="School">School</option>
+              <option value="Association">Association</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="row">
+            <button class="primary" id="g-create" type="button">Save community</button>
+            <button class="subtle" id="g-cancel" type="button">Cancel</button>
+          </div>
+          <div id="g-output"></div>
+        </div>
+      </div>` : ""}
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">${step(1)}</span>
+          <div><div class="step-title">Customer information</div><div class="step-subtitle">Basic details for the person you're enrolling.</div></div>
+        </div>
+        <div class="grid">
+          <div><label class="field-label" for="e-firstName">First name</label><input id="e-firstName" placeholder="First name" /></div>
+          <div><label class="field-label" for="e-lastName">Last name</label><input id="e-lastName" placeholder="Last name" /></div>
+          <div><label class="field-label" for="e-phoneNumber">Phone number</label><input id="e-phoneNumber" placeholder="2348123456789" /></div>
+          <div><label class="field-label" for="e-email">Email (optional)</label><input id="e-email" placeholder="Email address" /></div>
+          <div><label class="field-label" for="e-location">Location</label><input id="e-location" placeholder="e.g. Lagos, Nigeria" /></div>
+          <div><label class="field-label" for="e-gender">Gender</label><select id="e-gender"><option value="Female">Female</option><option value="Male">Male</option></select></div>
+          <div><label class="field-label" for="e-dateOfBirth">Date of birth</label><input id="e-dateOfBirth" type="date" /></div>
+        </div>
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">${step(2)}</span>
+          <div><div class="step-title">Choose a health plan</div><div class="step-subtitle">Tap a plan to select it.</div></div>
+        </div>
+        <div id="e-planCards" class="plan-card-wrap">Fetching available health plans…</div>
         <input id="e-planCode" type="hidden" />
         <input id="e-planName" type="hidden" />
-        <input id="e-location" placeholder="Location (e.g. Lagos, Nigeria)" />
-        <select id="e-gender"><option value="Female">Female</option><option value="Male">Male</option></select>
-        <input id="e-dateOfBirth" type="date" />
-        <div class="muted" style="grid-column:1 / -1">Clicking Enroll will open the Paystack checkout automatically.</div>
-        ${isAmbassador ? `<select id="e-groupId"><option value="">Select group\u2026</option>${groupOptions}</select>` : ""}
       </div>
-      <button class="primary" id="e-submit">Enroll</button>
-      <pre class="output" id="e-output"></pre>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">${step(3)}</span>
+          <div><div class="step-title">Payment summary</div><div class="step-subtitle">What the customer pays at checkout.</div></div>
+        </div>
+        <div id="e-paymentSummary" class="payment-summary">
+          <div class="payment-summary-row"><span class="label">Plan amount</span><span>Select a plan</span></div>
+          <div class="payment-summary-row"><span class="label">Payment fee</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+          <div class="payment-summary-row total"><span>Total</span><span>—</span></div>
+        </div>
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">${step(4)}</span>
+          <div><div class="step-title">Continue to payment</div><div class="step-subtitle">You'll be taken to a secure Paystack checkout.</div></div>
+        </div>
+        <button class="primary" id="e-submit" style="width:100%;">Continue to payment</button>
+        <pre class="output" id="e-output"></pre>
+      </div>
     </div>
   `;
 
+  // ---- Plan cards + live payment summary ----
   const planCards = document.getElementById("e-planCards");
-  const planSummary = document.getElementById("e-planSummary");
   const planCodeField = document.getElementById("e-planCode");
   const planNameField = document.getElementById("e-planName");
+  const summaryEl = document.getElementById("e-paymentSummary");
+
+  function updatePaymentSummary(plan) {
+    const meta = getPlanMeta(plan);
+    const numericPrice = Number(meta.price);
+    const hasPrice = Number.isFinite(numericPrice) && numericPrice > 0;
+    const planAmountText = hasPrice ? `NGN ${numericPrice.toLocaleString()}` : "Calculated at checkout";
+    const totalText = hasPrice ? `NGN ${(numericPrice + PAYMENT_FEE_NAIRA).toLocaleString()}` : "Calculated at checkout";
+    summaryEl.innerHTML = `
+      <div class="payment-summary-row"><span class="label">${esc(meta.name)}</span><span>${planAmountText}</span></div>
+      <div class="payment-summary-row"><span class="label">Payment fee</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+      <div class="payment-summary-row total"><span>Total</span><span>${totalText}</span></div>
+    `;
+  }
 
   if (planCards && planCodeField && planNameField) {
     (async () => {
@@ -1974,14 +2192,10 @@ async function renderEnrollView() {
         renderPlanCards(planCards, plans, {
           emptyText: "No plans were returned by the provider.",
           onSelect: (plan) => {
-            const { code, name, price, desc } = planCardMeta(plan);
+            const { code, name } = getPlanMeta(plan);
             planCodeField.value = code;
             planNameField.value = name;
-            const line = price
-              ? `Selected: <strong>${name}</strong> · <strong>${price}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`
-              : `Selected: <strong>${name}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`;
-            const feeNote = `<div class="muted">You’ll pay plan price + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee at checkout.</div>`;
-            planSummary.innerHTML = (desc ? `${line}<br><span class="muted">${desc}</span>` : line) + feeNote;
+            updatePaymentSummary(plan);
           },
         });
       } catch (err) {
@@ -1990,23 +2204,46 @@ async function renderEnrollView() {
     })();
   }
 
+  // ---- Inline community creation (ambassador only) ----
   if (isAmbassador) {
+    const showBtn = document.getElementById("show-create-group");
+    const inlineForm = document.getElementById("inline-create-group");
+    const groupSelect = document.getElementById("e-groupId");
+
+    showBtn.addEventListener("click", () => inlineForm.classList.toggle("hidden"));
+    document.getElementById("g-cancel").addEventListener("click", () => {
+      inlineForm.classList.add("hidden");
+      document.getElementById("g-output").innerHTML = "";
+    });
+
     document.getElementById("g-create").addEventListener("click", () => {
-      runWithLoading(document.getElementById("g-create"), "Creating…", async () => {
+      const outputEl = document.getElementById("g-output");
+      const name = document.getElementById("g-name").value.trim();
+      const type = document.getElementById("g-type").value;
+      outputEl.innerHTML = "";
+      if (!name) {
+        outputEl.innerHTML = `<div class="alert-error">Enter a community name.</div>`;
+        return;
+      }
+      runWithLoading(document.getElementById("g-create"), "Saving…", async () => {
         try {
-          const data = await api("/groups", {
-            method: "POST",
-            body: JSON.stringify({ name: document.getElementById("g-name").value, type: document.getElementById("g-type").value }),
-          });
-          out("g-output", data);
-          renderEnrollView();
+          const data = await api("/groups", { method: "POST", body: JSON.stringify({ name, type }) });
+          const opt = document.createElement("option");
+          opt.value = data.id;
+          opt.textContent = `${data.name} (${data.type})`;
+          groupSelect.appendChild(opt);
+          groupSelect.value = data.id;
+          document.getElementById("g-name").value = "";
+          inlineForm.classList.add("hidden");
+          showToast(`"${data.name}" created and selected.`, "success");
         } catch (err) {
-          out("g-output", err.data || err.message);
+          outputEl.innerHTML = `<div class="alert-error">${err.data?.error || err.message}</div>`;
         }
       });
     });
   }
 
+  // ---- Submit (unchanged payload/endpoint) ----
   document.getElementById("e-submit").addEventListener("click", () => {
     const payload = {
       firstName: document.getElementById("e-firstName").value,
@@ -2021,6 +2258,7 @@ async function renderEnrollView() {
       dateOfBirth: document.getElementById("e-dateOfBirth").value,
     };
     if (isAmbassador) payload.groupId = document.getElementById("e-groupId").value;
+
     runWithLoading(document.getElementById("e-submit"), "Opening checkout…", async () => {
       try {
         const data = await api("/subscriptions", { method: "POST", body: JSON.stringify(payload) });
@@ -2043,117 +2281,458 @@ async function renderEnrollView() {
 // ---------- Ambassador: Bulk Enroll ----------
 async function renderBulkEnrollView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>Bulk Enroll</h2><p class="muted">Add up to 20 people on the same plan, review the total, and make one secure payment.</p><div id="bulk-form"></div></div>`;
-  const form = document.getElementById("bulk-form");
-  try {
-    const [groups, plansData] = await Promise.all([api("/groups/mine"), api("/plans/health")]);
-    const plans = normalizePlans(plansData);
-    form.innerHTML = `<select id="bulk-group"><option value="">Choose your group</option>${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join("")}</select><select id="bulk-plan" style="margin-top:8px"><option value="">Choose one plan for this batch</option>${plans.map(p => { const m = getPlanMeta(p); const price = Number(m.price); return `<option value="${m.code}" data-price="${m.price}">${m.name} — NGN ${price.toLocaleString()} per person (+ NGN ${PAYMENT_FEE_NAIRA} fee per batch)</option>`; }).join("")}</select><div id="bulk-rows" style="margin-top:12px"></div><button class="subtle" id="bulk-add">Add person</button><button class="primary" id="bulk-pay" style="margin-left:6px">Review & pay</button><div id="bulk-output"></div>`;
-    const rows = document.getElementById("bulk-rows");
-    function addRow() {
-      if (rows.children.length >= 20) return;
-      const row = document.createElement("div"); row.className = "card bulk-row";
-      row.innerHTML = `<input placeholder="First name" data-field="firstName" /><input placeholder="Last name" data-field="lastName" style="margin-top:6px" /><input placeholder="Phone number" data-field="phoneNumber" style="margin-top:6px" /><input placeholder="Email (optional)" data-field="email" style="margin-top:6px" /><input placeholder="Location" data-field="location" style="margin-top:6px" /><input type="date" data-field="dateOfBirth" style="margin-top:6px" /><select data-field="gender" style="margin-top:6px"><option value="">Gender</option><option>Male</option><option>Female</option></select><button class="subtle bulk-remove" type="button" style="margin-top:6px">Remove</button>`;
-      row.querySelector(".bulk-remove").onclick = () => row.remove(); rows.appendChild(row);
-    }
-    addRow();
-    document.getElementById("bulk-add").onclick = addRow;
-    document.getElementById("bulk-pay").onclick = () => {
-      const customers = [...rows.children].map(row => Object.fromEntries([...row.querySelectorAll("[data-field]")].map(el => [el.dataset.field, el.value.trim()])));
-      const selectedPlan = document.getElementById("bulk-plan");
-      const planTotal = Number(selectedPlan.options[selectedPlan.selectedIndex]?.dataset.price || 0) * customers.length;
-      const total = planTotal + PAYMENT_FEE_NAIRA;
-      if (!window.confirm(`You are about to pay NGN ${total.toLocaleString()} (NGN ${planTotal.toLocaleString()} plans + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee) for ${customers.length} customer(s). Continue?`)) return;
-      runWithLoading(document.getElementById("bulk-pay"), "Preparing payment…", async () => {
-        try {
-          const result = await api("/bulk-orders", { method: "POST", body: JSON.stringify({ groupId: document.getElementById("bulk-group").value, planCode: selectedPlan.value, customers }) });
-          out("bulk-output", { message: `Opening secure payment for ${result.customerCount} customers…`, paymentRequired: true });
-          window.location.assign(result.authorizationUrl);
-        } catch (err) { renderError(document.getElementById("bulk-output"), err); }
-      });
-    };
-  } catch (err) { renderError(form, err); }
-}
-
-// ---------- Look Up (shared) ----------
-function renderLookupView() {
-  const container = document.getElementById("views");
   container.innerHTML = `
+    <div class="page-head"><h1>Bulk enroll</h1><p class="muted">Enroll up to 20 people on one plan with a single payment.</p></div>
     <div class="card">
-      <h2>Look Up Subscription</h2>
-      <div class="row">
-        <select id="l-type"><option value="phone">By phone number</option><option value="policy">By policy number</option></select>
-        <input id="l-value" placeholder="e.g. 2348123456789" />
-        <button class="primary" id="l-submit">Look up</button>
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">1</span>
+          <div><div class="step-title">Select community</div><div class="step-subtitle">Everyone in this batch will belong to the same community.</div></div>
+        </div>
+        <label class="field-label" for="b-groupId">Community</label>
+        <select id="b-groupId"><option value="">Choose community…</option></select>
+        <button type="button" class="create-community-btn" id="b-show-create-group">+ Create new community</button>
+        <div id="b-inline-create-group" class="inline-create-community hidden">
+          <div><label class="field-label" for="bg-name">Community name</label><input id="bg-name" placeholder="e.g. Sabon Gari Market" /></div>
+          <div><label class="field-label" for="bg-type">Community type</label>
+            <select id="bg-type"><option value="Bank">Bank</option><option value="Market">Market</option><option value="School">School</option><option value="Association">Association</option><option value="Other">Other</option></select>
+          </div>
+          <div class="row"><button class="primary" id="bg-create" type="button">Save community</button><button class="subtle" id="bg-cancel" type="button">Cancel</button></div>
+          <div id="bg-output"></div>
+        </div>
       </div>
-      <pre class="output" id="l-output"></pre>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">2</span>
+          <div><div class="step-title">Choose one plan</div><div class="step-subtitle">Everyone in this batch will be on the same plan.</div></div>
+        </div>
+        <div id="b-planCards" class="plan-card-wrap">Fetching available health plans…</div>
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">3</span>
+          <div><div class="step-title">Add customers</div><div class="step-subtitle" id="bulk-counter">0 of 20 customers added</div></div>
+        </div>
+        <div id="bulk-rows"></div>
+        <button type="button" class="bulk-add-btn" id="bulk-add">+ Add customer</button>
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">4</span>
+          <div><div class="step-title">Review totals</div><div class="step-subtitle">One payment covers the whole batch.</div></div>
+        </div>
+        <div id="bulk-summary" class="payment-summary">
+          <div class="payment-summary-row"><span class="label">Customers</span><span>0</span></div>
+          <div class="payment-summary-row"><span class="label">Plan total</span><span>NGN 0</span></div>
+          <div class="payment-summary-row"><span class="label">Payment fee</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+          <div class="payment-summary-row total"><span>Grand total</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+        </div>
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">5</span>
+          <div><div class="step-title">Proceed to payment</div><div class="step-subtitle">You'll be taken to a secure Paystack checkout.</div></div>
+        </div>
+        <button class="primary" id="bulk-pay" style="width:100%;">Review & pay</button>
+        <div id="bulk-output"></div>
+      </div>
     </div>
   `;
-  document.getElementById("l-submit").addEventListener("click", () => {
-    const type = document.getElementById("l-type").value;
-    const value = document.getElementById("l-value").value.trim();
-    const outputEl = document.getElementById("l-output");
-    if (!value) return out("l-output", { error: "Enter a value" });
-    runWithLoading(document.getElementById("l-submit"), "Looking up…", async () => {
-      renderLoading(outputEl, `Searching for ${value}…`);
+
+  const groupSelect = document.getElementById("b-groupId");
+  const rows = document.getElementById("bulk-rows");
+  const counterEl = document.getElementById("bulk-counter");
+  const summaryEl = document.getElementById("bulk-summary");
+  let selectedPlan = { code: "", name: "", price: 0 };
+
+  function updateBulkSummary() {
+    const count = rows.children.length;
+    counterEl.textContent = `${count} of 20 customers added`;
+    const planTotal = selectedPlan.price * count;
+    const grandTotal = planTotal + PAYMENT_FEE_NAIRA;
+    summaryEl.innerHTML = `
+      <div class="payment-summary-row"><span class="label">Customers</span><span>${count}</span></div>
+      <div class="payment-summary-row"><span class="label">Plan total${selectedPlan.name ? ` (${esc(selectedPlan.name)})` : ""}</span><span>NGN ${planTotal.toLocaleString()}</span></div>
+      <div class="payment-summary-row"><span class="label">Payment fee</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+      <div class="payment-summary-row total"><span>Grand total</span><span>NGN ${grandTotal.toLocaleString()}</span></div>
+    `;
+    document.getElementById("bulk-add").disabled = count >= 20;
+  }
+
+  function renumberRows() {
+    [...rows.children].forEach((row, i) => {
+      row.querySelector("[data-index]").textContent = i + 1;
+      row.querySelector(".bulk-index-badge").textContent = i + 1;
+    });
+  }
+
+  function addRow() {
+    if (rows.children.length >= 20) return;
+    const index = rows.children.length + 1;
+    const row = document.createElement("div");
+    row.className = "bulk-customer-card";
+    row.innerHTML = `
+      <div class="bulk-customer-header">
+        <span class="bulk-customer-title"><span class="bulk-index-badge">${index}</span> Customer <span data-index>${index}</span></span>
+        <button type="button" class="bulk-remove-btn" data-remove>Remove</button>
+      </div>
+      <div class="grid">
+        <div><label class="field-label">First name</label><input placeholder="First name" data-field="firstName" /></div>
+        <div><label class="field-label">Last name</label><input placeholder="Last name" data-field="lastName" /></div>
+        <div><label class="field-label">Phone number</label><input placeholder="2348123456789" data-field="phoneNumber" /></div>
+        <div><label class="field-label">Email (optional)</label><input placeholder="Email address" data-field="email" /></div>
+        <div><label class="field-label">Location</label><input placeholder="Location" data-field="location" /></div>
+        <div><label class="field-label">Date of birth</label><input type="date" data-field="dateOfBirth" /></div>
+        <div><label class="field-label">Gender</label><select data-field="gender"><option value="">Select gender</option><option>Male</option><option>Female</option></select></div>
+      </div>
+    `;
+    row.querySelector("[data-remove]").addEventListener("click", () => {
+      row.remove();
+      renumberRows();
+      updateBulkSummary();
+    });
+    rows.appendChild(row);
+    updateBulkSummary();
+  }
+
+  document.getElementById("bulk-add").addEventListener("click", addRow);
+  addRow();
+
+  // ---- Community select + inline create ----
+  try {
+    const groups = await api("/groups/mine");
+    groupSelect.innerHTML = `<option value="">Choose community…</option>${groups.map((g) => `<option value="${g.id}">${esc(g.name)} (${esc(g.type)})</option>`).join("")}`;
+  } catch {}
+
+  document.getElementById("b-show-create-group").addEventListener("click", () => {
+    document.getElementById("b-inline-create-group").classList.toggle("hidden");
+  });
+  document.getElementById("bg-cancel").addEventListener("click", () => {
+    document.getElementById("b-inline-create-group").classList.add("hidden");
+    document.getElementById("bg-output").innerHTML = "";
+  });
+  document.getElementById("bg-create").addEventListener("click", () => {
+    const outputEl = document.getElementById("bg-output");
+    const name = document.getElementById("bg-name").value.trim();
+    const type = document.getElementById("bg-type").value;
+    outputEl.innerHTML = "";
+    if (!name) {
+      outputEl.innerHTML = `<div class="alert-error">Enter a community name.</div>`;
+      return;
+    }
+    runWithLoading(document.getElementById("bg-create"), "Saving…", async () => {
       try {
-        const path = type === "phone" ? `/subscriptions/phone/${encodeURIComponent(value)}` : `/subscriptions/policy/${encodeURIComponent(value)}`;
-        const data = await api(path);
-        out("l-output", data);
+        const data = await api("/groups", { method: "POST", body: JSON.stringify({ name, type }) });
+        const opt = document.createElement("option");
+        opt.value = data.id;
+        opt.textContent = `${data.name} (${data.type})`;
+        groupSelect.appendChild(opt);
+        groupSelect.value = data.id;
+        document.getElementById("bg-name").value = "";
+        document.getElementById("b-inline-create-group").classList.add("hidden");
+        showToast(`"${data.name}" created and selected.`, "success");
       } catch (err) {
-        out("l-output", err.data || err.message);
+        outputEl.innerHTML = `<div class="alert-error">${err.data?.error || err.message}</div>`;
+      }
+    });
+  });
+
+  // ---- Plan cards ----
+  const planCards = document.getElementById("b-planCards");
+  try {
+    const plansData = await api("/plans/health");
+    const plans = normalizePlans(plansData);
+    renderPlanCards(planCards, plans, {
+      emptyText: "No plans were returned by the provider.",
+      onSelect: (plan) => {
+        const meta = getPlanMeta(plan);
+        selectedPlan = { code: meta.code, name: meta.name, price: Number(meta.price) || 0 };
+        updateBulkSummary();
+      },
+    });
+  } catch (err) {
+    planCards.innerHTML = `<div class="alert-error">Unable to load plans right now: ${err.message}</div>`;
+  }
+
+  // ---- Review & pay (unchanged endpoint/payload) ----
+  document.getElementById("bulk-pay").addEventListener("click", () => {
+    const customers = [...rows.children].map((row) =>
+      Object.fromEntries([...row.querySelectorAll("[data-field]")].map((el) => [el.dataset.field, el.value.trim()]))
+    );
+    if (!selectedPlan.code) {
+      renderError(document.getElementById("bulk-output"), { message: "Choose a plan before continuing." });
+      return;
+    }
+    const planTotal = selectedPlan.price * customers.length;
+    const total = planTotal + PAYMENT_FEE_NAIRA;
+    if (!window.confirm(`You are about to pay NGN ${total.toLocaleString()} (NGN ${planTotal.toLocaleString()} plans + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee) for ${customers.length} customer(s). Continue?`)) return;
+
+    runWithLoading(document.getElementById("bulk-pay"), "Preparing payment…", async () => {
+      try {
+        const result = await api("/bulk-orders", {
+          method: "POST",
+          body: JSON.stringify({ groupId: groupSelect.value, planCode: selectedPlan.code, customers }),
+        });
+        out("bulk-output", { message: `Opening secure payment for ${result.customerCount} customers…`, paymentRequired: true });
+        window.location.assign(result.authorizationUrl);
+      } catch (err) {
+        renderError(document.getElementById("bulk-output"), err);
       }
     });
   });
 }
 
-// ---------- Renew (shared) ----------
-function renderRenewView() {
+// ---------- Look Up (shared) ----------
+function extractRecords(raw) {
+  if (Array.isArray(raw)) return raw.filter((x) => x && typeof x === "object");
+  if (raw && typeof raw === "object") {
+    if (Array.isArray(raw.data)) return raw.data.filter((x) => x && typeof x === "object");
+    if (raw.data && typeof raw.data === "object") return [raw.data];
+    if (Object.keys(raw).length) return [raw];
+  }
+  return [];
+}
+
+function formatMaybeDate(v) {
+  if (!v) return v;
+  const s = String(v);
+  if (/\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toLocaleDateString();
+  }
+  return s;
+}
+
+const PROFILE_RECOGNIZED_KEYS = new Set([
+  "fullname", "name", "customername", "customer_name", "firstname", "first_name", "lastname", "last_name",
+  "phonenumber", "phone", "msisdn", "customerphone",
+  "status", "subscriptionstatus", "policystatus",
+  "policynumber", "policy_number", "subscriptionid", "wellahealth_policy_number",
+  "planname", "plan", "plancode", "plan_code",
+  "startdate", "subscriptionstartdate", "start_date",
+  "enddate", "expirydate", "subscriptionenddate", "end_date",
+  "location", "address", "gender", "sex", "dateofbirth", "dob", "email",
+]);
+
+function profileCardHtml(record, idx) {
+  const first = firstDefined(record, ["firstName", "first_name"]);
+  const last = firstDefined(record, ["lastName", "last_name"]);
+  const name = firstDefined(record, ["fullName", "name", "customerName", "customer_name"]) || [first, last].filter(Boolean).join(" ") || "Customer";
+  const phone = firstDefined(record, ["phoneNumber", "phone", "msisdn", "customerPhone"]);
+  const status = firstDefined(record, ["status", "subscriptionStatus", "policyStatus"]);
+  const policyNumber = firstDefined(record, ["policyNumber", "policy_number", "subscriptionId", "wellahealth_policy_number"]);
+  const planName = firstDefined(record, ["planName", "plan", "planCode", "plan_code"]);
+  const startDate = firstDefined(record, ["startDate", "subscriptionStartDate", "start_date"]);
+  const endDate = firstDefined(record, ["endDate", "expiryDate", "subscriptionEndDate", "end_date"]);
+  const location = firstDefined(record, ["location", "address"]);
+  const gender = firstDefined(record, ["gender", "sex"]);
+  const dob = firstDefined(record, ["dateOfBirth", "dob"]);
+  const email = firstDefined(record, ["email"]);
+
+  const initial = esc(String(name).trim().charAt(0).toUpperCase() || "?");
+  const statusLower = String(status || "").toLowerCase();
+  const badgeClass = statusLower.includes("active")
+    ? "badge-active"
+    : statusLower.includes("cancel") || statusLower.includes("expire")
+    ? "badge-failed"
+    : status ? "badge-pending" : "";
+
+  const detailItems = [
+    ["Policy number", policyNumber],
+    ["Plan", planName],
+    ["Start date", formatMaybeDate(startDate)],
+    ["End date", formatMaybeDate(endDate)],
+    ["Location", location],
+    ["Gender", gender],
+    ["Date of birth", formatMaybeDate(dob)],
+    ["Email", email],
+  ].filter(([, v]) => v !== undefined && v !== null && v !== "");
+
+  const remaining = {};
+  for (const [k, v] of Object.entries(record)) {
+    if (!PROFILE_RECOGNIZED_KEYS.has(k.toLowerCase())) remaining[k] = v;
+  }
+  const hasMore = Object.keys(remaining).length > 0;
+
+  return `
+    <div class="profile-card">
+      <div class="profile-card-header">
+        <div class="avatar-badge">${initial}</div>
+        <div class="profile-header-text">
+          <div class="profile-name">${esc(String(name))}</div>
+          ${phone ? `<div class="profile-sub">${esc(String(phone))}</div>` : ""}
+        </div>
+        ${status ? `<span class="badge ${badgeClass}">${esc(String(status))}</span>` : ""}
+      </div>
+      ${detailItems.length ? `
+      <div class="profile-detail-grid">
+        ${detailItems.map(([label, value]) => `
+          <div class="profile-detail-item">
+            <span class="label">${esc(label)}</span>
+            <span class="value">${esc(String(value))}</span>
+          </div>`).join("")}
+      </div>` : `<div class="muted" style="margin-top:8px;">No additional details returned.</div>`}
+      ${hasMore ? `
+      <button type="button" class="profile-more-toggle" data-more-toggle="${idx}">View full details</button>
+      <div class="hidden" id="profile-more-${idx}">${buildResultRows(remaining)}</div>
+      ` : ""}
+    </div>`;
+}
+
+function renderLookupView() {
   const container = document.getElementById("views");
   container.innerHTML = `
+    <div class="page-head"><h1>Find a customer</h1><p class="muted">Search by phone number or policy number.</p></div>
     <div class="card">
-      <h2>Renew Subscription</h2>
-      <p class="muted">Any agent or ambassador can renew any customer \u2014 not limited to who originally enrolled them.</p>
-      <div class="grid">
-        <input id="r-phoneNumber" placeholder="Phone number" />
-        <div style="grid-column:1 / -1">
-          <label class="muted">Choose a plan</label>
-          <div id="r-planCards" class="plan-card-wrap">Fetching available health plans…</div>
-          <div id="r-planSummary" class="plan-summary muted">Select a plan to continue.</div>
-        </div>
-        <input id="r-planCode" type="hidden" />
-        <div class="muted" style="grid-column:1 / -1">Clicking Renew will open the Paystack checkout automatically.</div>
+      <div class="segmented" id="l-type-toggle">
+        <button type="button" class="active" data-type="phone">Phone number</button>
+        <button type="button" data-type="policy">Policy number</button>
       </div>
-      <button class="primary" id="r-submit">Renew</button>
-      <pre class="output" id="r-output"></pre>
+      <div style="margin-top:12px;">
+        <label class="field-label" for="l-value" id="l-value-label">Phone number</label>
+        <input id="l-value" placeholder="e.g. 2348123456789" />
+      </div>
+      <button class="primary" id="l-submit" style="width:100%; margin-top:12px;">Search</button>
+    </div>
+    <div id="l-results" style="margin-top:16px;"></div>
+  `;
+
+  let searchType = "phone";
+  const toggleEl = document.getElementById("l-type-toggle");
+  const valueLabel = document.getElementById("l-value-label");
+  const valueInput = document.getElementById("l-value");
+  const resultsEl = document.getElementById("l-results");
+
+  toggleEl.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      searchType = btn.dataset.type;
+      toggleEl.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+      valueLabel.textContent = searchType === "phone" ? "Phone number" : "Policy number";
+      valueInput.placeholder = searchType === "phone" ? "e.g. 2348123456789" : "e.g. WH-000123";
+    });
+  });
+
+  function runSearch() {
+    const value = valueInput.value.trim();
+    if (!value) {
+      resultsEl.innerHTML = `<div class="alert-error">Enter a ${searchType === "phone" ? "phone number" : "policy number"} to search.</div>`;
+      return;
+    }
+    runWithLoading(document.getElementById("l-submit"), "Searching…", async () => {
+      renderLoading(resultsEl, `Searching for ${esc(value)}…`);
+      try {
+        const path = searchType === "phone" ? `/subscriptions/phone/${encodeURIComponent(value)}` : `/subscriptions/policy/${encodeURIComponent(value)}`;
+        const data = await api(path);
+        const records = extractRecords(data);
+        if (!records.length) {
+          renderEmptyState(resultsEl, "No matching customer found.", "search");
+          return;
+        }
+        resultsEl.innerHTML = records.map((r, i) => profileCardHtml(r, i)).join("");
+        resultsEl.querySelectorAll("[data-more-toggle]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const panel = document.getElementById(`profile-more-${btn.dataset.moreToggle}`);
+            const isHidden = panel.classList.toggle("hidden");
+            btn.textContent = isHidden ? "View full details" : "Hide full details";
+          });
+        });
+      } catch (err) {
+        renderError(resultsEl, err, err.data?.error || "We couldn't find a matching customer.");
+      }
+    });
+  }
+
+  document.getElementById("l-submit").addEventListener("click", runSearch);
+  valueInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
+}
+
+// ---------- Renew (shared) ----------
+async function renderRenewView() {
+  const container = document.getElementById("views");
+  const prefillPhone = state.pendingRenewalPhone || "";
+  state.pendingRenewalPhone = null;
+
+  container.innerHTML = `
+    <div class="page-head"><h1>Renew a customer</h1><p class="muted">Any agent or ambassador can renew any customer — not limited to who originally enrolled them.</p></div>
+    <div class="card">
+      ${prefillPhone ? `<div class="alert-success">Phone number filled in from Renewals Due.</div>` : ""}
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">1</span>
+          <div><div class="step-title">Enter phone number</div><div class="step-subtitle">The customer's registered phone number.</div></div>
+        </div>
+        <label class="field-label" for="r-phoneNumber">Phone number</label>
+        <input id="r-phoneNumber" placeholder="2348123456789" value="${esc(prefillPhone)}" />
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">2</span>
+          <div><div class="step-title">Choose a plan</div><div class="step-subtitle">Tap a plan to select it.</div></div>
+        </div>
+        <div id="r-planCards" class="plan-card-wrap">Fetching available health plans…</div>
+        <input id="r-planCode" type="hidden" />
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">3</span>
+          <div><div class="step-title">Review payment</div><div class="step-subtitle">What the customer pays at checkout.</div></div>
+        </div>
+        <div id="r-paymentSummary" class="payment-summary">
+          <div class="payment-summary-row"><span class="label">Plan amount</span><span>Select a plan</span></div>
+          <div class="payment-summary-row"><span class="label">Payment fee</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+          <div class="payment-summary-row total"><span>Total</span><span>—</span></div>
+        </div>
+      </div>
+
+      <div class="enroll-step">
+        <div class="step-header">
+          <span class="step-number">4</span>
+          <div><div class="step-title">Continue to payment</div><div class="step-subtitle">You'll be taken to a secure Paystack checkout.</div></div>
+        </div>
+        <button class="primary" id="r-submit" style="width:100%;">Continue to payment</button>
+        <pre class="output" id="r-output"></pre>
+      </div>
     </div>
   `;
 
   const planCards = document.getElementById("r-planCards");
-  const planSummary = document.getElementById("r-planSummary");
   const planCodeField = document.getElementById("r-planCode");
+  const summaryEl = document.getElementById("r-paymentSummary");
+
+  function updatePaymentSummary(plan) {
+    const meta = getPlanMeta(plan);
+    const numericPrice = Number(meta.price);
+    const hasPrice = Number.isFinite(numericPrice) && numericPrice > 0;
+    const planAmountText = hasPrice ? `NGN ${numericPrice.toLocaleString()}` : "Calculated at checkout";
+    const totalText = hasPrice ? `NGN ${(numericPrice + PAYMENT_FEE_NAIRA).toLocaleString()}` : "Calculated at checkout";
+    summaryEl.innerHTML = `
+      <div class="payment-summary-row"><span class="label">${esc(meta.name)}</span><span>${planAmountText}</span></div>
+      <div class="payment-summary-row"><span class="label">Payment fee</span><span>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</span></div>
+      <div class="payment-summary-row total"><span>Total</span><span>${totalText}</span></div>
+    `;
+  }
 
   if (planCards && planCodeField) {
-    (async () => {
-      try {
-        const plansData = await api("/plans/health");
-        const plans = normalizePlans(plansData);
-        renderPlanCards(planCards, plans, {
-          emptyText: "No plans were returned by the provider.",
-          onSelect: (plan) => {
-            const { code, name, price, desc } = planCardMeta(plan);
-            planCodeField.value = code;
-            const line = price
-              ? `Selected: <strong>${name}</strong> · <strong>${price}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`
-              : `Selected: <strong>${name}</strong> + <strong>NGN ${PAYMENT_FEE_NAIRA.toLocaleString()}</strong> payment fee`;
-            const feeNote = `<div class="muted">You’ll pay plan price + NGN ${PAYMENT_FEE_NAIRA.toLocaleString()} payment fee at checkout.</div>`;
-            planSummary.innerHTML = (desc ? `${line}<br><span class="muted">${desc}</span>` : line) + feeNote;
-          },
-        });
-      } catch (err) {
-        planCards.innerHTML = `<div class="alert-error">Unable to load plans right now: ${err.message}</div>`;
-      }
-    })();
+    try {
+      const plansData = await api("/plans/health");
+      const plans = normalizePlans(plansData);
+      renderPlanCards(planCards, plans, {
+        emptyText: "No plans were returned by the provider.",
+        onSelect: (plan) => {
+          const { code } = getPlanMeta(plan);
+          planCodeField.value = code;
+          updatePaymentSummary(plan);
+        },
+      });
+    } catch (err) {
+      planCards.innerHTML = `<div class="alert-error">Unable to load plans right now: ${err.message}</div>`;
+    }
   }
 
   document.getElementById("r-submit").addEventListener("click", () => {

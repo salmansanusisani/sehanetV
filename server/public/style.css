@@ -1225,3 +1225,498 @@ details.error-details summary { cursor: pointer; font-weight: 500; outline: none
   from { opacity: 0; transform: translate(-50%, -12px) scale(0.97); }
   to { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
+/* ---------- Typography layer (added) ---------- */
+:root {
+  --font-display: 'Manrope', 'Inter', -apple-system, sans-serif;
+}
+
+.login-title,
+.page-head h1,
+.stat-value,
+.dash-greeting-name {
+  font-family: var(--font-display);
+}
+
+/* ---------- Dashboard: greeting ---------- */
+.dash-greeting {
+  margin-bottom: 20px;
+}
+
+.dash-greeting-eyebrow {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin: 0 0 2px;
+}
+
+.dash-greeting-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--teal-ink);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* ---------- Section headers ---------- */
+.section-block { margin-top: 22px; }
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--teal-deep);
+  margin: 0 0 10px;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-title-row .section-title { margin: 0; }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.link-btn:hover { color: var(--teal-deep); text-decoration: underline; }
+
+/* ---------- Quick actions ---------- */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 520px) {
+  .quick-actions { grid-template-columns: repeat(4, 1fr); }
+}
+
+.qa-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 88px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  color: var(--teal-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 14px 8px;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.qa-btn:hover { border-color: var(--teal-line); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.qa-btn:active { transform: translateY(0) scale(0.98); }
+
+.qa-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--teal-tint);
+  color: var(--teal);
+  display: grid;
+  place-items: center;
+}
+.qa-icon i, .qa-icon svg { width: 19px; height: 19px; }
+
+/* ---------- Avatar badge (signature element) ---------- */
+.avatar-badge {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--white);
+  background: var(--teal);
+}
+
+.avatar-badge.tone-gold { background: var(--gold-deep); }
+.avatar-badge.tone-bright { background: var(--teal-line); }
+.avatar-badge.tone-deep { background: var(--teal-deep); }
+.avatar-badge.tone-other { background: var(--muted); }
+
+/* ---------- Community cards ---------- */
+.community-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.community-card-body { min-width: 0; flex: 1; }
+
+.community-card-name {
+  font-weight: 700;
+  color: var(--teal-ink);
+  font-size: 0.92rem;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.community-card-meta {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ---------- Empty state card (dashed, action-oriented) ---------- */
+.empty-state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 26px 18px;
+  border: 1.5px dashed var(--teal-soft);
+  border-radius: var(--radius-card);
+  background: var(--teal-tint);
+}
+.empty-state-card p { margin: 0; color: var(--teal-deep); font-size: 0.86rem; font-weight: 500; }
+/* ---------- Enroll flow: numbered steps ---------- */
+.enroll-step {
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px dashed var(--border);
+}
+.enroll-step:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.step-number {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: var(--white);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.step-title { font-weight: 700; color: var(--teal-deep); font-size: 0.95rem; }
+.step-subtitle { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+
+.field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--teal-ink);
+  display: block;
+  margin: 0 0 6px;
+}
+
+/* ---------- Community picker ---------- */
+.create-community-btn {
+  width: 100%;
+  margin-top: 10px;
+  border: 1.5px dashed var(--teal-line);
+  background: var(--teal-tint);
+  color: var(--teal-deep);
+  border-radius: var(--radius-btn);
+  padding: 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.create-community-btn:hover { background: #DCF0EC; }
+
+.inline-create-community {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* ---------- Payment summary ---------- */
+.payment-summary {
+  background: var(--teal-tint);
+  border: 1px solid var(--teal-soft);
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+}
+
+.payment-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.86rem;
+  padding: 6px 0;
+  color: var(--ink);
+}
+.payment-summary-row .label { color: var(--muted); }
+
+.payment-summary-row.total {
+  border-top: 1px solid var(--teal-soft);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-weight: 800;
+  font-size: 1.02rem;
+  color: var(--teal-deep);
+  font-family: var(--font-display);
+}
+/* ---------- Bulk enroll: customer cards ---------- */
+.bulk-customer-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.bulk-customer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.bulk-customer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--teal-deep);
+}
+
+.bulk-index-badge {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  background: var(--teal-tint);
+  color: var(--teal);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.75rem;
+}
+
+.bulk-remove-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.bulk-remove-btn:hover { text-decoration: underline; }
+
+.bulk-add-btn {
+  width: 100%;
+  border: 1.5px dashed var(--teal-line);
+  background: var(--teal-tint);
+  color: var(--teal-deep);
+  border-radius: var(--radius-btn);
+  padding: 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.bulk-add-btn:hover { background: #DCF0EC; }
+.bulk-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------- Renewals Due: task cards ---------- */
+.renewal-card {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  padding-right: 76px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+.renewal-card.urgent {
+  border-color: var(--danger);
+  background: #FFF8F8;
+}
+.renewal-card.urgent .avatar-badge { background: var(--danger); }
+
+.renewal-card > .badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.renewal-body { flex: 1; min-width: 0; }
+
+.renewal-name {
+  font-weight: 700;
+  color: var(--teal-ink);
+  font-size: 0.92rem;
+}
+
+.renewal-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.renewal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.renewal-actions .call-link {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.renewal-actions button { flex: 1; }
+
+/* ---------- Lookup: segmented toggle ---------- */
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  overflow: hidden;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 11px 8px;
+  border: none;
+  background: var(--white);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.segmented button.active { background: var(--teal); color: var(--white); }
+.segmented button:not(:last-child) { border-right: 1px solid var(--border); }
+.segmented button.active:not(:last-child) { border-right-color: var(--teal); }
+
+/* ---------- Lookup: profile card ---------- */
+.profile-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 14px;
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.profile-header-text { flex: 1; min-width: 0; }
+
+.profile-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--teal-ink);
+  line-height: 1.25;
+}
+
+.profile-sub { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+.profile-card-header .badge { flex-shrink: 0; }
+
+.profile-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 10px;
+}
+@media (min-width: 520px) {
+  .profile-detail-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.profile-detail-item { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.profile-detail-item .label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 3px;
+}
+.profile-detail-item .value { font-weight: 600; color: var(--ink); font-size: 0.88rem; }
+
+.profile-more-toggle {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: var(--teal);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.profile-more-toggle:hover { text-decoration: underline; }
+
+/* ---------- Earnings: history cards ---------- */
+.earnings-history-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--teal-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+}
+.earnings-history-card.status-rejected { border-left-color: var(--danger); }
+.earnings-history-card.status-paid { border-left-color: var(--teal); }
+.earnings-history-card.status-pending,
+.earnings-history-card.status-approved { border-left-color: var(--gold); }
+
+.earnings-history-amount { font-weight: 800; font-family: var(--font-display); color: var(--teal-ink); font-size: 0.98rem; }
+.earnings-history-meta { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+.earnings-history-note { font-size: 0.76rem; color: var(--muted); margin-top: 2px; font-style: italic; }
