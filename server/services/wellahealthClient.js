@@ -58,7 +58,14 @@ async function getHealthPlansCached() {
   const data = await request({ method: "GET", url: "/v1/zoi/plans/health" });
   plansCache = { fetchedAt: now, data };
   return data;
-}
+}let data = await request({
+  method: "GET",
+  url: "/v1/zoi/plans/health"
+});
+
+data = data.filter(
+  (plan) => plan.planCode !== "WHZ-EDF01"
+);
 
 module.exports = {
   getHealthPlans: getHealthPlansCached,
