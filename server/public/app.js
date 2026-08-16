@@ -4,6 +4,7 @@ let state = {
   token: localStorage.getItem("sehanet_token") || null,
   user: null,
   activeTab: null,
+  lastTab: null,
 };
 
 // ---------- API helper ----------
@@ -80,24 +81,24 @@ function doLogout() {
   showLoginScreen("You have been logged out.");
 }
 
-// Keep the login/register forms from doing a native page reload.
+// Keep forms from doing native page reloads
 document.getElementById("loginForm")?.addEventListener("submit", (e) => e.preventDefault());
 document.getElementById("registerForm")?.addEventListener("submit", (e) => e.preventDefault());
 
-document.getElementById("loginBtn").addEventListener("click", login);
-document.getElementById("loginPassword").addEventListener("keydown", (e) => {
+document.getElementById("loginBtn")?.addEventListener("click", login);
+document.getElementById("loginPassword")?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") login();
 });
 
-document.getElementById("showRegisterBtn").addEventListener("click", () => {
+document.getElementById("showRegisterBtn")?.addEventListener("click", () => {
   document.querySelector("#loginScreen .login-card").classList.add("hidden");
   document.getElementById("registerCard").classList.remove("hidden");
 });
-document.getElementById("showLoginBtn").addEventListener("click", () => {
+document.getElementById("showLoginBtn")?.addEventListener("click", () => {
   document.getElementById("registerCard").classList.add("hidden");
   document.querySelector("#loginScreen .login-card").classList.remove("hidden");
 });
-document.getElementById("registerBtn").addEventListener("click", () => {
+document.getElementById("registerBtn")?.addEventListener("click", () => {
   runWithLoading(document.getElementById("registerBtn"), "Creating account…", async () => {
     const errEl = document.getElementById("registerError");
     errEl.textContent = "";
@@ -145,11 +146,9 @@ async function login() {
   });
 }
 
-document.getElementById("logoutBtn").addEventListener("click", doLogout);
+document.getElementById("logoutBtn")?.addEventListener("click", doLogout);
 
 // ---------- Session inactivity lockout ----------
-// Auto-log out after 2 minutes of inactivity for security, with a 30-second
-// warning toast so nobody gets silently kicked mid-work.
 const SESSION_IDLE_MS = 2 * 60 * 1000;
 const SESSION_WARNING_MS = 30 * 1000;
 
@@ -216,13 +215,12 @@ function startIdleTimer() {
     tabsEl.classList.contains("open") ? closeMenu() : openMenu();
   });
   overlay.addEventListener("click", closeMenu);
-  // Close the drawer whenever a tab is chosen (delegated, survives renderTabs re-renders)
   tabsEl.addEventListener("click", (e) => {
     if (e.target.closest(".tab-btn")) closeMenu();
   });
 })();
 
-// ---------- Payment result toast (shown after returning from Paystack) ----------
+// ---------- Payment result toast ----------
 function showPaymentBanner() {
   const params = new URLSearchParams(window.location.search);
   const payment = params.get("payment");
@@ -247,11 +245,10 @@ function showPaymentBanner() {
   document.body.appendChild(result);
   setTimeout(() => result.remove(), 9000);
 
-  // Clean the URL so refreshing the page doesn't re-show the banner
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-// ---------- UI Helpers (Prompt 4.3) ----------
+// ---------- UI Helpers ----------
 function renderLoading(container, text = "Loading…") {
   if (!container) return;
   container.innerHTML = `
@@ -279,14 +276,13 @@ function renderError(container, err, customMsg = null) {
   container.innerHTML = `
     <div class="alert-error">
       <div>❌ ${msg}</div>
-      <div class="muted">Please check the information and try again. If this continues, contact the administrator.</div>
+      <div class="muted">Please check the information and try again. If this continues, contact support.</div>
     </div>
   `;
 }
 
-// Runs `fn` while showing a spinner + busy label on the button, then restores it.
-// Returns a promise that resolves with fn's result (or rejects with fn's error).
 async function runWithLoading(button, busyLabel, fn) {
+  if (!button) return fn();
   const originalHtml = button.innerHTML;
   button.disabled = true;
   button.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span> ${busyLabel}`;
@@ -298,7 +294,7 @@ async function runWithLoading(button, busyLabel, fn) {
   }
 }
 
-// Self-service password change modal setup (Prompt 5.4)
+// Password modal
 function setupPasswordModal() {
   const openBtn = document.getElementById("changePasswordBtn");
   const modal = document.getElementById("passwordModal");
@@ -314,31 +310,26 @@ function setupPasswordModal() {
     clearFields(["pwd-current", "pwd-new", "pwd-confirm"]);
   });
 
-  cancelBtn.addEventListener("click", () => {
-    modal.classList.add("hidden");
-  });
+  cancelBtn?.addEventListener("click", () => modal.classList.add("hidden"));
   document.getElementById("pwd-close")?.addEventListener("click", () => modal.classList.add("hidden"));
-  document.getElementById("passwordModal")?.addEventListener("click", (e) => {
+  modal.addEventListener("click", (e) => {
     if (e.target === modal) modal.classList.add("hidden");
   });
 
-  submitBtn.addEventListener("click", () => {
+  submitBtn?.addEventListener("click", () => {
     const currentPassword = document.getElementById("pwd-current").value;
     const newPassword = document.getElementById("pwd-new").value;
     const confirmPassword = document.getElementById("pwd-confirm").value;
 
     outputEl.innerHTML = "";
-
     if (!currentPassword || !newPassword) {
       outputEl.innerHTML = `<div class="alert-error">Please fill in all password fields.</div>`;
       return;
     }
-
     if (newPassword.length < 6) {
       outputEl.innerHTML = `<div class="alert-error">New password must be at least 6 characters long.</div>`;
       return;
     }
-
     if (newPassword !== confirmPassword) {
       outputEl.innerHTML = `<div class="alert-error">New passwords do not match.</div>`;
       return;
@@ -359,44 +350,52 @@ function setupPasswordModal() {
   });
 }
 
-// ---------- Onboarding tour (Phase 7) ----------
+// Onboarding tour
 const TOUR_STEPS_BY_ROLE = {
   admin: [
     { tab: "dashboard", desc: "See customer payments, your net before and after expenses, active policies, and ambassador commission totals." },
-    { tab: "team", desc: "Create and manage agents and ambassadors. Confirm bank details before approving a payment." },
-    { tab: "policies", desc: "Search all customer records by name, phone, or email for follow-up." },
-    { tab: "payout", desc: "Review ambassador payment requests, approve them, then use Pay now only when ready to send a real bank transfer." },
-    { tab: "settings", desc: "Set the commission percentages that drive earnings calculations." },
+    { tab: "team", desc: "Create and manage agents and ambassadors." },
+    { tab: "policies", desc: "Search all customer records by name, phone, or email." },
+    { tab: "payout", desc: "Review ambassador payment requests and process bank transfers." },
+    { tab: "settings", desc: "Set commission percentages." },
   ],
   ambassador: [
-    { tab: "enroll", desc: "Create a group first, then enroll one customer securely." },
-    { tab: "bulkenroll", desc: "Enroll up to 20 people on one plan and make one combined payment." },
-    { tab: "mysummary", desc: "See available commission, request payment, and review payment status." },
-    { tab: "renewalsdue", desc: "See your customers whose plans expire soon, so you can follow up." },
+    { tab: "dashboard", desc: "Your personal hub with quick actions, customer stats, and communities." },
+    { tab: "enroll", desc: "Enroll a customer and select or create their community." },
+    { tab: "bulkenroll", desc: "Enroll up to 20 people in one batch." },
+    { tab: "renewalsdue", desc: "Follow up with expiring policies." },
+    { tab: "mysummary", desc: "View available earnings and request payouts." },
   ],
   agent: [
-    { tab: "enroll", desc: "Enroll one customer securely. You do not need to create a group." },
-    { tab: "mypolicies", desc: "See only the customers you enrolled and their current policy status." },
-    { tab: "renewalsdue", desc: "Use this list to follow up with your customers before expiry." },
-    { tab: "renew", desc: "Renew a customer's plan after confirming their phone number and selected plan." },
+    { tab: "dashboard", desc: "Your agent hub showing active customers and quick action shortcuts." },
+    { tab: "enroll", desc: "Enroll a new customer into a health plan." },
+    { tab: "renewalsdue", desc: "Track customer policy renewal dates." },
   ],
   customer: [
-    { tab: "mypolicies", desc: "See your health plan, policy status, and expiry date." },
-    { tab: "enroll", desc: "Choose a plan and complete secure payment to enroll yourself." },
-    { tab: "renewalsdue", desc: "Check when your plan is close to expiry and renew in time." },
+    { tab: "mypolicies", desc: "See your health plan and policy status." },
+    { tab: "enroll", desc: "Enroll yourself in a health plan." },
   ],
 };
+
+function isMobileDevice() {
+  return window.innerWidth < 900 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
 
 function tourStorageKey() {
   return `sehanet_tour_seen_v2_${state.user?.username || "anon"}`;
 }
 
 function maybeStartTour() {
+  if (isMobileDevice()) return;
   if (localStorage.getItem(tourStorageKey())) return;
   startTour();
 }
 
 function startTour() {
+  if (isMobileDevice()) {
+    showToast("The interactive tour is designed for desktop screens.", "info");
+    return;
+  }
   if (!window.driver || !window.driver.js) return;
 
   const steps = TOUR_STEPS_BY_ROLE[state.user.role] || [];
@@ -411,25 +410,13 @@ function startTour() {
 
   for (const step of steps) {
     const el = document.querySelector(`.tab-btn[data-tab="${step.tab}"]`);
-    if (!el) continue; // this role doesn't have that tab — skip it
+    if (!el) continue;
     driverSteps.push({
       element: el,
       popover: {
         title: el.textContent.trim(),
         description: step.desc,
         side: "right",
-      },
-    });
-  }
-
-  const changePasswordEl = document.getElementById("changePasswordBtn");
-  if (changePasswordEl) {
-    driverSteps.push({
-      element: changePasswordEl,
-      popover: {
-        title: "Change Password",
-        description: "You can update your own password here any time.",
-        side: "bottom",
       },
     });
   }
@@ -446,13 +433,14 @@ function startTour() {
   driverObj.drive();
 }
 
-const retakeTourBtn = document.getElementById("retakeTourBtn");
-if (retakeTourBtn) {
-  retakeTourBtn.addEventListener("click", () => {
-    localStorage.removeItem(tourStorageKey());
-    startTour();
-  });
-}
+document.getElementById("retakeTourBtn")?.addEventListener("click", () => {
+  if (isMobileDevice()) {
+    showToast("The interactive tour is available on desktop screens.", "info");
+    return;
+  }
+  localStorage.removeItem(tourStorageKey());
+  startTour();
+});
 
 async function boot() {
   try {
@@ -473,10 +461,10 @@ async function boot() {
   if (window.lucide) window.lucide.createIcons();
   showPaymentBanner();
   startIdleTimer();
-  setTimeout(() => maybeStartTour(), 400); // small delay so tab elements are in the DOM for driver.js to target
+  setTimeout(() => maybeStartTour(), 400);
 }
 
-// ---------- Tabs / routing ----------
+// ---------- Role Tab Definitions & Router ----------
 const TABS_BY_ROLE = {
   admin: [
     ["dashboard", "Dashboard"],
@@ -491,20 +479,22 @@ const TABS_BY_ROLE = {
     ["renew", "Renew"],
   ],
   ambassador: [
-    ["enroll", "Enroll"],
-    ["bulkenroll", "Bulk Enroll"],
+    ["dashboard", "Dashboard"],
+    ["enroll", "Enroll Customer"],
+    ["bulkenroll", "Bulk Enrollment"],
     ["renewalsdue", "Renewals Due"],
-    ["lookup", "Look Up"],
-    ["renew", "Renew"],
-    ["mygroups", "My Groups"],
+    ["renew", "Renew Customer"],
+    ["lookup", "Customer Lookup"],
+    ["mygroups", "My Communities"],
     ["mysummary", "My Earnings"],
   ],
   agent: [
+    ["dashboard", "Dashboard"],
     ["enroll", "Enroll"],
-    ["renewalsdue", "Renewals Due"],
-    ["lookup", "Look Up"],
     ["renew", "Renew"],
-    ["mypolicies", "My Enrollments"],
+    ["lookup", "Customer Lookup"],
+    ["renewalsdue", "Renewals Due"],
+    ["mypolicies", "My Customers"],
   ],
   customer: [
     ["mypolicies", "My Plan"],
@@ -521,12 +511,12 @@ const TAB_ICONS = {
   groups: "layers",
   settings: "shield-alert",
   payout: "bar-chart-3",
-  enroll: "plus",
+  enroll: "user-plus",
   bulkenroll: "users-round",
   lookup: "search",
   renew: "repeat",
   mygroups: "layers",
-  mysummary: "bar-chart-3",
+  mysummary: "wallet",
   mypolicies: "file-text",
 };
 
@@ -552,15 +542,14 @@ function renderTabs() {
 }
 
 function setActiveTab(key) {
-  // Remember the last non-manual tab so the manual page's Back button has
-  // somewhere sensible to return to.
   if (state.activeTab && state.activeTab !== "readmanual") {
     state.lastTab = state.activeTab;
   }
   state.activeTab = key;
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === key));
+  
   const views = {
-    dashboard: renderAdminDashboard,
+    dashboard: renderRoleDashboard,
     team: renderTeamView,
     policies: renderPoliciesView,
     renewalsdue: renderRenewalsDueView,
@@ -582,9 +571,231 @@ function setActiveTab(key) {
   }
 }
 
+function renderRoleDashboard() {
+  if (state.user.role === "admin") return renderAdminDashboard();
+  if (state.user.role === "ambassador") return renderAmbassadorDashboard();
+  if (state.user.role === "agent") return renderAgentDashboard();
+  return renderMyPoliciesView();
+}
+
+// ---------- Ambassador Dashboard ----------
+async function renderAmbassadorDashboard() {
+  const container = document.getElementById("views");
+  container.innerHTML = `<div id="dashboard-content"></div>`;
+  const content = document.getElementById("dashboard-content");
+  renderLoading(content, "Loading dashboard figures…");
+
+  try {
+    const [earnings, renewals, groups, policies] = await Promise.all([
+      api("/me/earnings").catch(() => ({ available: 0, earned: 0, paid: 0 })),
+      api("/me/renewals-due").catch(() => []),
+      api("/groups/mine").catch(() => []),
+      api("/me/policies").catch(() => []),
+    ]);
+
+    const customerCount = policies.length;
+    const renewalsCount = renewals.length;
+    const availableComm = earnings.available || 0;
+    const lifetimeComm = earnings.earned || 0;
+
+    const money = (v) => `₦${Number(v || 0).toLocaleString()}`;
+    const name = state.user.name || state.user.username || "Ambassador";
+
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    content.innerHTML = `
+      <div class="greeting-banner">
+        <h1 class="greeting-title">${greetingTime}, ${esc(name)} 👋</h1>
+        <p class="greeting-subtitle">You currently manage <strong>${customerCount} customers</strong>, <strong>${renewalsCount} renewals due</strong>, and have <strong>${money(availableComm)}</strong> available commission.</p>
+        <div class="greeting-pills">
+          <span class="greeting-pill">👥 ${customerCount} Customers</span>
+          <span class="greeting-pill">⏰ ${renewalsCount} Renewals Due</span>
+          <span class="greeting-pill">💰 ${money(availableComm)} Available</span>
+        </div>
+      </div>
+
+      <!-- Top Statistics -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="users"></i></div>
+          <div class="stat-label">Total Customers</div>
+          <div class="stat-value">${customerCount}</div>
+          <div class="stat-hint">Active customer accounts</div>
+        </div>
+        <div class="stat-card tone-gold">
+          <div class="stat-icon"><i data-lucide="clock"></i></div>
+          <div class="stat-label">Renewals Due</div>
+          <div class="stat-value">${renewalsCount}</div>
+          <div class="stat-hint">Expiring in next 14 days</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="wallet"></i></div>
+          <div class="stat-label">Available Commission</div>
+          <div class="stat-value">${money(availableComm)}</div>
+          <div class="stat-hint">Available for payout</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="trending-up"></i></div>
+          <div class="stat-label">Lifetime Commission</div>
+          <div class="stat-value">${money(lifetimeComm)}</div>
+          <div class="stat-hint">Total earned to date</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions-title">Quick Actions</div>
+      <div class="quick-actions-grid">
+        <button class="quick-action-btn" data-nav="enroll">
+          <div class="quick-action-icon"><i data-lucide="user-plus"></i></div>
+          <div class="quick-action-label">Enroll Customer</div>
+        </button>
+        <button class="quick-action-btn" data-nav="bulkenroll">
+          <div class="quick-action-icon"><i data-lucide="users-round"></i></div>
+          <div class="quick-action-label">Bulk Enroll</div>
+        </button>
+        <button class="quick-action-btn" data-nav="renew">
+          <div class="quick-action-icon"><i data-lucide="repeat"></i></div>
+          <div class="quick-action-label">Renew Customer</div>
+        </button>
+        <button class="quick-action-btn" data-nav="lookup">
+          <div class="quick-action-icon"><i data-lucide="search"></i></div>
+          <div class="quick-action-label">Find Customer</div>
+        </button>
+      </div>
+
+      <!-- My Communities Section -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h2>My Communities</h2>
+          <button class="subtle" data-nav="enroll">+ New Community</button>
+        </div>
+        ${groups.length ? `
+          <div class="community-grid">
+            ${groups.map(g => {
+              const count = policies.filter(p => p.group_id == g.id).length;
+              return `
+                <div class="community-card">
+                  <div class="community-info">
+                    <div class="community-icon"><i data-lucide="layers"></i></div>
+                    <div>
+                      <div class="community-name">${esc(g.name)}</div>
+                      <div class="community-meta">${esc(g.type)} · ${count} members</div>
+                    </div>
+                  </div>
+                  <button class="subtle" data-nav="enroll" data-group-id="${g.id}">Enroll</button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : `
+          <div class="empty-state">
+            <i data-lucide="layers"></i>
+            <p>No communities created yet. Create one when enrolling your first customer!</p>
+          </div>
+        `}
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    content.querySelectorAll("[data-nav]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const navTab = btn.dataset.nav;
+        setActiveTab(navTab);
+        if (btn.dataset.groupId) {
+          setTimeout(() => {
+            const grpSelect = document.getElementById("e-groupId");
+            if (grpSelect) grpSelect.value = btn.dataset.groupId;
+          }, 100);
+        }
+      });
+    });
+
+  } catch (err) {
+    renderError(content, err);
+  }
+}
+
+// ---------- Agent Dashboard ----------
+async function renderAgentDashboard() {
+  const container = document.getElementById("views");
+  container.innerHTML = `<div id="dashboard-content"></div>`;
+  const content = document.getElementById("dashboard-content");
+  renderLoading(content, "Loading agent dashboard…");
+
+  try {
+    const [policies, renewals] = await Promise.all([
+      api("/me/policies").catch(() => []),
+      api("/me/renewals-due").catch(() => []),
+    ]);
+
+    const customerCount = policies.length;
+    const renewalsCount = renewals.length;
+    const name = state.user.name || state.user.username || "Agent";
+
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    content.innerHTML = `
+      <div class="greeting-banner">
+        <h1 class="greeting-title">${greetingTime}, ${esc(name)} 👋</h1>
+        <p class="greeting-subtitle">Track your customer signups and manage health plan renewals effortlessly.</p>
+      </div>
+
+      <!-- Agent Statistics -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="users"></i></div>
+          <div class="stat-label">Customers Enrolled</div>
+          <div class="stat-value">${customerCount}</div>
+          <div class="stat-hint">Active customers enrolled</div>
+        </div>
+        <div class="stat-card tone-gold">
+          <div class="stat-icon"><i data-lucide="clock"></i></div>
+          <div class="stat-label">Renewals Due</div>
+          <div class="stat-value">${renewalsCount}</div>
+          <div class="stat-hint">Expiring in next 14 days</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions-title">Quick Actions</div>
+      <div class="quick-actions-grid">
+        <button class="quick-action-btn" data-nav="enroll">
+          <div class="quick-action-icon"><i data-lucide="user-plus"></i></div>
+          <div class="quick-action-label">Enroll</div>
+        </button>
+        <button class="quick-action-btn" data-nav="renew">
+          <div class="quick-action-icon"><i data-lucide="repeat"></i></div>
+          <div class="quick-action-label">Renew</div>
+        </button>
+        <button class="quick-action-btn" data-nav="lookup">
+          <div class="quick-action-icon"><i data-lucide="search"></i></div>
+          <div class="quick-action-label">Lookup</div>
+        </button>
+        <button class="quick-action-btn" data-nav="mypolicies">
+          <div class="quick-action-icon"><i data-lucide="file-text"></i></div>
+          <div class="quick-action-label">My Customers</div>
+        </button>
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    content.querySelectorAll("[data-nav]").forEach(btn => {
+      btn.addEventListener("click", () => setActiveTab(btn.dataset.nav));
+    });
+
+  } catch (err) {
+    renderError(content, err);
+  }
+}
+
+// ---------- Admin Dashboard ----------
 async function renderAdminDashboard() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="page-head"><h1>Business Dashboard</h1><p class="muted">A live view of payments, policies, and commission across every ambassador.</p></div><div id="dashboard-content"></div>`;
+  container.innerHTML = `<div class="page-head"><h1>Business Dashboard</h1><p class="muted">Live overview of revenue, active policies, and ambassador payout figures.</p></div><div id="dashboard-content"></div>`;
   const content = document.getElementById("dashboard-content");
   renderLoading(content, "Calculating business figures…");
   try {
@@ -613,7 +824,6 @@ async function renderAdminDashboard() {
   } catch (err) { renderError(content, err); }
 }
 
-
 function out(id, data) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -626,7 +836,7 @@ function out(id, data) {
     return;
   }
   if (data?.paymentRequired) {
-    el.innerHTML = `<div class="alert-success">Preparing secure payment…</div>`;
+    el.innerHTML = `<div class="alert-success">Preparing secure Paystack checkout…</div>`;
     return;
   }
 
@@ -645,7 +855,6 @@ function out(id, data) {
   `;
 }
 
-// Convert a key like "policy_number" or "planCode" into "Policy Number"
 function prettyLabel(key) {
   return String(key)
     .replace(/^_+|_+$/g, "")
@@ -654,7 +863,6 @@ function prettyLabel(key) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Human-friendly rendering of a scalar value
 function resultValueHtml(v) {
   if (v === null || v === undefined || v === "") return `<span class="muted">—</span>`;
   if (typeof v === "boolean") return v ? "Yes" : "No";
@@ -676,7 +884,6 @@ function isScalar(v) {
   return v === null || v === undefined || typeof v !== "object";
 }
 
-// Build a definition-list of scalar fields plus <details> blocks for nested objects/arrays
 function buildResultRows(data, skipKeys = []) {
   if (!data || typeof data !== "object") {
     return `<div class="result-details"><div><span>Value</span><strong>${resultValueHtml(data)}</strong></div></div>`;
@@ -715,24 +922,31 @@ function nestResultHtml(val) {
   return buildResultRows(val);
 }
 
-function normalizePlans(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.plans)) return data.plans;
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.result)) return data.result;
-  if (Array.isArray(data?.results)) return data.results;
-  if (Array.isArray(data?.plans?.items)) return data.plans.items;
-  if (Array.isArray(data?.data?.plans)) return data.data.plans;
-  return [];
-}
-
 function getPlanMeta(plan) {
   const code = plan?.planCode || plan?.code || plan?.plan_code || plan?.id || "";
   const name = plan?.planName || plan?.name || plan?.title || plan?.displayName || code || "Unnamed plan";
   const price = plan?.price || plan?.amount || plan?.premium || plan?.priceAmount || plan?.monthlyPrice || "";
   const description = plan?.description || plan?.details || plan?.summary || plan?.benefits || "";
   return { code, name, price, description };
+}
+
+function normalizePlans(data) {
+  let list = [];
+  if (Array.isArray(data)) list = data;
+  else if (Array.isArray(data?.plans)) list = data.plans;
+  else if (Array.isArray(data?.items)) list = data.items;
+  else if (Array.isArray(data?.data)) list = data.data;
+  else if (Array.isArray(data?.result)) list = data.result;
+  else if (Array.isArray(data?.results)) list = data.results;
+  else if (Array.isArray(data?.plans?.items)) list = data.plans.items;
+  else if (Array.isArray(data?.data?.plans)) list = data.data.plans;
+
+  return list.filter((p) => {
+    const meta = getPlanMeta(p);
+    const nameStr = String(meta.name || "").toLowerCase();
+    const codeStr = String(meta.code || "").toLowerCase();
+    return !nameStr.includes("easy digital health plan") && !codeStr.includes("easy digital health plan");
+  });
 }
 
 function esc(str) {
@@ -814,10 +1028,9 @@ function planCardMeta(plan) {
   const desc = Array.isArray(description) ? description.join(", ") : String(description || "");
   const benefits = splitList(firstDefined(plan, ["benefits", "benefitList", "benefitsList", "inclusions", "features", "planBenefits", "cover", "coverage", "covers"]));
   const paymentPlans = firstDefined(plan, ["paymentPlans", "payment_plans", "paymentOptions", "payment_options", "pricingOptions", "installments", "pricing"]);
-  return { code, name, price: priceText, desc, duration, dependants, benefits, paymentPlans };
+  return { code, name, price: priceText, rawPrice: n || 0, desc, duration, dependants, benefits, paymentPlans };
 }
 
-// Renders plans as selectable cards. `onSelect(plan, card)` fires when a card is picked.
 function renderPlanCards(container, plans, opts = {}) {
   if (!container) return;
   if (!plans.length) {
@@ -827,33 +1040,32 @@ function renderPlanCards(container, plans, opts = {}) {
   container.innerHTML = `<div class="plan-grid">${plans
     .map((plan, i) => {
       const meta = planCardMeta(plan);
-      const tags = [meta.code, meta.duration, meta.dependants].filter(Boolean).map((t) => `<span class="plan-tag">${esc(t)}</span>`).join("");
       const benefits = meta.benefits.length
-        ? `<span class="plan-benefits"><span class="plan-benefits-title">What’s covered</span>${meta.benefits
-            .slice(0, 12)
-            .map((b) => `<span class="plan-benefit"><i data-lucide="check"></i>${esc(b)}</span>`)
-            .join("")}${meta.benefits.length > 12 ? `<span class="plan-benefit-more">+ ${meta.benefits.length - 12} more</span>` : ""}</span>`
-        : "";
-      const payments = normalizePaymentPlans(meta.paymentPlans);
-      const paymentsHtml = payments.length
-        ? `<span class="plan-payments"><span class="plan-benefits-title">Payment options</span><span class="plan-pay-chips">${payments
-            .map((p) => `<span class="plan-pay-chip">${esc(p.label)}${p.price > 0 ? ` · NGN ${p.price.toLocaleString()}` : ""}</span>`)
-            .join("")}</span></span>`
+        ? `<div class="plan-benefits">${meta.benefits
+            .slice(0, 6)
+            .map((b) => `<div class="plan-benefit-item"><span class="plan-benefit-icon">✓</span><span>${esc(b)}</span></div>`)
+            .join("")}</div>`
         : "";
       return `
         <button type="button" class="plan-card" data-index="${i}" aria-pressed="false">
-          <span class="plan-card-check"><i data-lucide="check"></i></span>
-          <span class="plan-card-top">
-            <span class="plan-card-title">${esc(meta.name)}</span>
-            ${meta.price ? `<span class="plan-card-price">${meta.price}</span>` : ""}
-          </span>
-          ${tags ? `<span class="plan-card-tags">${tags}</span>` : ""}
-          ${meta.desc ? `<span class="plan-card-desc">${esc(meta.desc)}</span>` : ""}
+          <div>
+            <div class="plan-card-header">
+              <div>
+                <div class="plan-card-title">${esc(meta.name)}</div>
+                ${meta.duration ? `<span class="plan-card-badge">${esc(meta.duration)}</span>` : ""}
+              </div>
+              <div class="plan-card-check-ring">✓</div>
+            </div>
+            <div class="plan-card-price-wrap">
+              <span class="plan-card-price-amount">${meta.price || "NGN 0"}</span>
+            </div>
+            ${meta.desc ? `<div class="plan-card-desc">${esc(meta.desc)}</div>` : ""}
+          </div>
           ${benefits}
-          ${paymentsHtml}
         </button>`;
     })
     .join("")}</div>`;
+
   if (window.lucide) window.lucide.createIcons();
 
   container.querySelectorAll(".plan-card").forEach((card) => {
@@ -889,26 +1101,6 @@ function clearFields(ids) {
   });
 }
 
-function setupPaymentReferenceToggle(methodSelectId, referenceWrapId, referenceInputId) {
-  const methodSelect = document.getElementById(methodSelectId);
-  const referenceWrap = document.getElementById(referenceWrapId);
-  const referenceInput = document.getElementById(referenceInputId);
-  if (!methodSelect || !referenceWrap || !referenceInput) return;
-
-  const sync = () => {
-    const isPaystack = methodSelect.value === "paystack";
-    referenceWrap.style.display = isPaystack ? "none" : "block";
-    if (isPaystack) {
-      referenceInput.value = "";
-    }
-  };
-
-  methodSelect.addEventListener("change", sync);
-  sync();
-}
-
-// Download a payout CSV using an authorized fetch (token stays in the header,
-// never in the URL), then trigger a browser download from a blob URL.
 async function downloadPayoutCsv(payoutId, weekLabel) {
   const res = await fetch(`${API_BASE}/admin/payouts/${payoutId}/export`, {
     headers: state.token ? { Authorization: `Bearer ${state.token}` } : {},
@@ -928,9 +1120,8 @@ async function downloadPayoutCsv(payoutId, weekLabel) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ---------- Admin: Team ----------
+// ---------- Admin Team View ----------
 let cachedBanks = [];
-
 async function fetchBanks() {
   if (cachedBanks.length > 0) return cachedBanks;
   try {
@@ -1019,7 +1210,7 @@ async function renderTeamView() {
   if (bankCodeSelect) bankCodeSelect.innerHTML = optionsHtml || `<option value="">Unable to load banks</option>`;
   if (editBankSelect) editBankSelect.innerHTML = optionsHtml || `<option value="">Unable to load banks</option>`;
 
-  document.getElementById("nu-submit").addEventListener("click", () => {
+  document.getElementById("nu-submit")?.addEventListener("click", () => {
     runWithLoading(document.getElementById("nu-submit"), "Creating…", async () => {
       const outputEl = document.getElementById("nu-output");
       outputEl.innerHTML = "";
@@ -1043,11 +1234,11 @@ async function renderTeamView() {
     });
   });
 
-  document.getElementById("eu-cancel").addEventListener("click", () => {
+  document.getElementById("eu-cancel")?.addEventListener("click", () => {
     document.getElementById("edit-user-card").classList.add("hidden");
   });
 
-  document.getElementById("eu-submit").addEventListener("click", () => {
+  document.getElementById("eu-submit")?.addEventListener("click", () => {
     const userId = document.getElementById("eu-id").value;
     const outputEl = document.getElementById("eu-output");
 
@@ -1101,12 +1292,14 @@ async function loadTeamList() {
       return;
     }
     listEl.innerHTML = `
-      <table>
-        <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Bank Info</th><th>Rates</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${users.map(userRow).join("")}
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Bank Info</th><th>Rates</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${users.map(userRow).join("")}
+          </tbody>
+        </table>
+      </div>
     `;
     listEl.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => handleTeamAction(btn.dataset.action, btn.dataset.id, users));
@@ -1132,14 +1325,14 @@ function userRow(u) {
   }
   return `
     <tr>
-      <td>${u.name}<div class="muted">${u.username}</div></td>
+      <td><strong>${u.name}</strong><div class="muted">${u.username}</div></td>
       <td>${u.role}</td>
       <td><span class="badge ${badgeClass}">${u.status}</span></td>
       <td>${bankInfo}</td>
       <td>${rates}</td>
       <td>${actions.join(" ")}</td>
     </tr>
-    <tr id="inline-confirm-${u.id}" class="hidden" style="background:#FAF9F6;">
+    <tr id="inline-confirm-${u.id}" class="hidden">
       <td colspan="6">
         <div id="inline-confirm-box-${u.id}" class="inline-confirm-box"></div>
       </td>
@@ -1147,7 +1340,6 @@ function userRow(u) {
   `;
 }
 
-// Inline confirmations for Block/Remove (Prompt 4.2)
 async function handleTeamAction(action, id, users) {
   const user = users.find((u) => String(u.id) === String(id));
   if (!user) return;
@@ -1174,9 +1366,7 @@ async function handleTeamAction(action, id, users) {
     textarea.addEventListener("input", () => {
       confirmBtn.disabled = !textarea.value.trim();
     });
-
     cancelBtn.addEventListener("click", () => confirmRow.classList.add("hidden"));
-
     confirmBtn.addEventListener("click", async () => {
       try {
         await api(`/admin/users/${id}/block`, {
@@ -1190,12 +1380,10 @@ async function handleTeamAction(action, id, users) {
     });
   } else if (action === "remove") {
     confirmRow.classList.remove("hidden");
-    const isAmbassador = user.role === "ambassador";
     const activeAmbassadors = users.filter(
       (u) => u.role === "ambassador" && u.status === "active" && String(u.id) !== String(id)
     );
-
-    const reassignSelectHtml = isAmbassador && activeAmbassadors.length > 0
+    const reassignSelectHtml = user.role === "ambassador" && activeAmbassadors.length > 0
       ? `
         <label class="muted">Reassign future commissions to (optional):</label>
         <select id="remove-reassign-${id}">
@@ -1223,9 +1411,7 @@ async function handleTeamAction(action, id, users) {
     textarea.addEventListener("input", () => {
       confirmBtn.disabled = !textarea.value.trim();
     });
-
     cancelBtn.addEventListener("click", () => confirmRow.classList.add("hidden"));
-
     confirmBtn.addEventListener("click", async () => {
       const reassignEl = document.getElementById(`remove-reassign-${id}`);
       const reassign_to = reassignEl && reassignEl.value ? Number(reassignEl.value) : undefined;
@@ -1269,7 +1455,7 @@ async function handleTeamAction(action, id, users) {
   }
 }
 
-// ---------- Admin: Policies Search & Filter (Prompt 5.1) ----------
+// ---------- Policies Directory View ----------
 let policySearchDebounceTimer = null;
 let policyState = { search: "", status: "All", page: 1, limit: 10 };
 
@@ -1326,7 +1512,6 @@ async function renderPoliciesView() {
       });
 
       const data = await api(`/admin/policies?${query.toString()}`);
-
       if (!data.rows || data.rows.length === 0) {
         renderEmptyState(listEl, "No matching policies found", "file-text");
         pagEl.innerHTML = "";
@@ -1334,42 +1519,44 @@ async function renderPoliciesView() {
       }
 
       listEl.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Plan</th>
-              <th>Policy #</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Agent</th>
-              <th>End Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.rows
-              .map((p) => {
-                const statusBadgeClass =
-                  p.status === "Active"
-                    ? "badge-success"
-                    : p.status === "Cancelled" || p.status === "Expired"
-                    ? "badge-failed"
-                    : "badge-pending";
-                return `
-                  <tr>
-                    <td><strong>${p.customer_name || "—"}</strong><div class="muted">${p.customer_phone || ""}</div><div class="muted">${p.customer_email || ""}</div></td>
-                    <td>${p.plan_name || p.plan_code}</td>
-                    <td><span class="muted">${p.wellahealth_policy_number || "—"}</span></td>
-                    <td>NGN ${(p.price_at_enrollment || 0).toLocaleString()}</td>
-                    <td><span class="badge ${statusBadgeClass}">${p.status}</span></td>
-                    <td>${p.agent_name || (p.customer_account_id ? "Self-enrolled customer" : `Agent #${p.original_agent_id}`)}</td>
-                    <td>${p.end_date ? p.end_date.split("T")[0] : "—"}</td>
-                  </tr>
-                `;
-              })
-              .join("")}
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Plan</th>
+                <th>Policy #</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Agent</th>
+                <th>End Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.rows
+                .map((p) => {
+                  const statusBadgeClass =
+                    p.status === "Active"
+                      ? "badge-success"
+                      : p.status === "Cancelled" || p.status === "Expired"
+                      ? "badge-failed"
+                      : "badge-pending";
+                  return `
+                    <tr>
+                      <td><strong>${p.customer_name || "—"}</strong><div class="muted">${p.customer_phone || ""}</div></td>
+                      <td>${p.plan_name || p.plan_code}</td>
+                      <td><span class="muted">${p.wellahealth_policy_number || "—"}</span></td>
+                      <td>NGN ${(p.price_at_enrollment || 0).toLocaleString()}</td>
+                      <td><span class="badge ${statusBadgeClass}">${p.status}</span></td>
+                      <td>${p.agent_name || (p.customer_account_id ? "Self-enrolled" : `Agent #${p.original_agent_id}`)}</td>
+                      <td>${p.end_date ? p.end_date.split("T")[0] : "—"}</td>
+                    </tr>
+                  `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </div>
       `;
 
       const totalPages = Math.ceil(data.total / data.limit) || 1;
@@ -1385,7 +1572,6 @@ async function renderPoliciesView() {
           loadPolicies();
         }
       });
-
       document.getElementById("pol-next")?.addEventListener("click", () => {
         if (policyState.page < totalPages) {
           policyState.page++;
@@ -1399,17 +1585,17 @@ async function renderPoliciesView() {
   }
 }
 
-// ---------- Renewals Due Soon View (Prompt 5.2) ----------
+// ---------- Renewals Due Page (Task Manager for Agents & Ambassadors) ----------
 async function renderRenewalsDueView() {
   const container = document.getElementById("views");
   const isAdmin = state.user.role === "admin";
 
   container.innerHTML = `
-    <div class="card">
-      <h2>Upcoming Renewals Due</h2>
-      <p class="muted">${isAdmin ? "All customer policies due for renewal in the next 14 days." : "Your customer policies expiring soon. Contact customers to process renewals."}</p>
-      <div id="rd-list"></div>
+    <div class="page-head">
+      <h1>Renewals Due</h1>
+      <p>${isAdmin ? "All customer policies due for renewal in the next 14 days." : "Your task list of upcoming policy expirations. Reach out to renew cover seamlessly."}</p>
     </div>
+    <div id="rd-list"></div>
   `;
 
   const listEl = document.getElementById("rd-list");
@@ -1420,52 +1606,104 @@ async function renderRenewalsDueView() {
     const data = await api(endpoint);
 
     if (!data || data.length === 0) {
-      renderEmptyState(listEl, "No upcoming renewals due in the next 14 days", "check-circle-2");
+      renderEmptyState(listEl, "No upcoming renewals due in the next 14 days 🎉", "check-circle-2");
       return;
     }
 
-    listEl.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Customer</th>
-            <th>Phone</th>
-            <th>Plan</th>
-            <th>Agent/Ambassador</th>
-            <th>End Date</th>
-            <th>Due In</th>
-          </tr>
-        </thead>
-        <tbody>
+    if (isAdmin) {
+      // Admin sees structured overview table
+      listEl.innerHTML = `
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Plan</th>
+                  <th>Agent / Ambassador</th>
+                  <th>End Date</th>
+                  <th>Due In</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data
+                  .map((r) => {
+                    const daysRemaining = typeof r.days_remaining === "number" ? r.days_remaining : 0;
+                    const isUrgent = daysRemaining <= 3;
+                    const dueText = daysRemaining === 0 ? "Today" : daysRemaining === 1 ? "Tomorrow" : `${daysRemaining} days`;
+
+                    return `
+                      <tr class="${isUrgent ? "urgent-row" : ""}">
+                        <td><strong>${r.customer_name || "—"}</strong></td>
+                        <td><a href="tel:${r.customer_phone}" style="color:var(--primary); font-weight:600;">${r.customer_phone || "—"}</a></td>
+                        <td>${r.plan_name || r.plan_code}</td>
+                        <td>${r.agent_name || `User #${r.original_agent_id}`}</td>
+                        <td>${r.end_date ? r.end_date.split("T")[0] : "—"}</td>
+                        <td><span class="badge ${isUrgent ? "badge-failed" : "badge-pending"}">${dueText}</span></td>
+                      </tr>
+                    `;
+                  })
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } else {
+      // Ambassadors and Agents get Task Manager Cards!
+      listEl.innerHTML = `
+        <div class="renewal-task-grid">
           ${data
             .map((r) => {
               const daysRemaining = typeof r.days_remaining === "number" ? r.days_remaining : 0;
               const isUrgent = daysRemaining <= 3;
-              const urgentClass = isUrgent ? "urgent-row" : "";
-              const formattedEndDate = r.end_date ? r.end_date.split("T")[0] : "—";
-              const dueText = daysRemaining === 0 ? "Today" : daysRemaining === 1 ? "Tomorrow" : `${daysRemaining} days`;
+              const dueText = daysRemaining === 0 ? "Expires Today!" : daysRemaining === 1 ? "Expires Tomorrow" : `Expires in ${daysRemaining} days`;
 
               return `
-                <tr class="${urgentClass}">
-                  <td><strong>${r.customer_name || "—"}</strong></td>
-                  <td><a href="tel:${r.customer_phone}" style="color:var(--teal); font-weight:600; text-decoration:none;">${r.customer_phone || "—"}</a></td>
-                  <td>${r.plan_name || r.plan_code}</td>
-                  <td>${r.agent_name || `User #${r.original_agent_id}`}</td>
-                  <td>${formattedEndDate}</td>
-                  <td><span class="badge ${isUrgent ? "badge-failed" : "badge-pending"}">${dueText}</span></td>
-                </tr>
+                <div class="renewal-card ${isUrgent ? "urgent" : ""}">
+                  <div class="renewal-card-top">
+                    <div>
+                      <div class="renewal-customer-name">${esc(r.customer_name || "Customer")}</div>
+                      <div class="renewal-plan-name">${esc(r.plan_name || r.plan_code)}</div>
+                    </div>
+                    <span class="renewal-due-badge ${isUrgent ? "urgent-badge" : ""}">${dueText}</span>
+                  </div>
+                  <div class="muted" style="font-size:0.85rem;">📞 ${esc(r.customer_phone || "No phone")}</div>
+                  <div class="renewal-card-actions">
+                    ${r.customer_phone ? `<a href="tel:${r.customer_phone}" class="renewal-call-btn"><i data-lucide="phone" style="width:14px;height:14px;"></i> Call</a>` : ""}
+                    <button class="primary renewal-renew-btn" data-renew-phone="${r.customer_phone || ""}">
+                      <i data-lucide="repeat" style="width:14px;height:14px;"></i> Renew
+                    </button>
+                  </div>
+                </div>
               `;
             })
             .join("")}
-        </tbody>
-      </table>
-    `;
+        </div>
+      `;
+
+      if (window.lucide) window.lucide.createIcons();
+
+      listEl.querySelectorAll(".renewal-renew-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const phone = btn.dataset.renewPhone;
+          setActiveTab("renew");
+          if (phone) {
+            setTimeout(() => {
+              const phoneInput = document.getElementById("r-phoneNumber");
+              if (phoneInput) phoneInput.value = phone;
+            }, 100);
+          }
+        });
+      });
+    }
   } catch (err) {
     renderError(listEl, err);
   }
 }
 
-// ---------- Admin: Groups (read-only) ----------
+// ---------- Admin Groups View ----------
 async function renderAdminGroupsView() {
   const container = document.getElementById("views");
   container.innerHTML = `<div class="card"><h2>All Groups</h2><div id="groups-list"></div></div>`;
@@ -1479,18 +1717,20 @@ async function renderAdminGroupsView() {
       return;
     }
     listEl.innerHTML = `
-      <table>
-        <thead><tr><th>Name</th><th>Type</th><th>Ambassador</th><th>Created</th></tr></thead>
-        <tbody>
-          ${groups.map(g => `<tr><td>${g.name}</td><td>${g.type}</td><td>${g.ambassador_name}</td><td>${g.created_at}</td></tr>`).join("")}
-        </tbody>
-      </table>`;
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Ambassador</th><th>Created</th></tr></thead>
+          <tbody>
+            ${groups.map(g => `<tr><td><strong>${g.name}</strong></td><td>${g.type}</td><td>${g.ambassador_name}</td><td>${g.created_at}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
   } catch (err) {
     renderError(listEl, err);
   }
 }
 
-// ---------- Admin: Settings ----------
+// ---------- Admin Commission Settings ----------
 async function renderSettingsView() {
   const container = document.getElementById("views");
   container.innerHTML = `<div class="card"><h2>Commission Settings</h2><div id="settings-form"></div></div>`;
@@ -1506,10 +1746,10 @@ async function renderSettingsView() {
       <input id="s-new" value="${s.ambassador_new_percent}" />
       <label class="muted">Ambassador rate — renewal (%)</label>
       <input id="s-renewal" value="${s.ambassador_renewal_percent}" />
-      <div style="margin-top:12px"><button class="primary" id="s-save">Save Settings</button></div>
+      <div style="margin-top:14px"><button class="primary" id="s-save">Save Settings</button></div>
       <div id="s-output" style="margin-top:10px;"></div>
     `;
-    document.getElementById("s-save").addEventListener("click", () => {
+    document.getElementById("s-save")?.addEventListener("click", () => {
       const outputEl = document.getElementById("s-output");
       outputEl.innerHTML = "";
       runWithLoading(document.getElementById("s-save"), "Saving…", async () => {
@@ -1533,13 +1773,13 @@ async function renderSettingsView() {
   }
 }
 
-// ---------- Admin: Weekly Payout Management ----------
+// ---------- Admin Payout Management ----------
 async function renderPayoutView() {
   const container = document.getElementById("views");
   container.innerHTML = `
     <div class="card">
       <h2>Weekly Payout Management</h2>
-      <p class="muted">Create payout drafts, approve weekly payouts, and process automated Paystack bank transfers.</p>
+      <p class="muted">Create payout drafts, approve weekly payouts, and process automated bank transfers.</p>
       <div class="row">
         <input id="payout-week" placeholder="e.g. 2026-W30 (leave blank for current week)" />
         <button class="primary" id="payout-load">Load / Create Draft</button>
@@ -1554,7 +1794,7 @@ async function renderPayoutView() {
     <div class="card"><h2>Ambassador Payment Requests</h2><div id="payout-requests"></div></div>
   `;
 
-  document.getElementById("payout-load").addEventListener("click", handleCreateOrLoadPayout);
+  document.getElementById("payout-load")?.addEventListener("click", handleCreateOrLoadPayout);
   await loadPayoutHistory();
   await loadPayoutRequests();
   await handleCreateOrLoadPayout();
@@ -1565,7 +1805,7 @@ async function renderPayoutView() {
     try {
       const requests = await api("/admin/payout-requests");
       if (!requests.length) return renderEmptyState(el, "No ambassador payment requests", "bell");
-      el.innerHTML = `<table><thead><tr><th>Ambassador</th><th>Requested</th><th>Available</th><th>Status</th><th>Action</th></tr></thead><tbody>${requests.map(r => `<tr><td>${r.ambassador_name}</td><td>NGN ${Number(r.requested_amount).toLocaleString()}</td><td>NGN ${Number(r.balance?.available || 0).toLocaleString()}</td><td><span class="badge ${r.status === "rejected" ? "badge-failed" : r.status === "approved" || r.status === "paid" ? "badge-success" : "badge-pending"}">${r.status}</span></td><td>${r.status === "pending" ? `<button class="subtle" data-request="approve" data-id="${r.id}">Approve</button> <button class="subtle" data-request="reject" data-id="${r.id}">Reject</button>` : r.status === "approved" ? `<button class="primary" data-pay-request="${r.id}" data-amount="${r.requested_amount}">Pay now</button>` : "—"}</td></tr>`).join("")}</tbody></table>`;
+      el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Ambassador</th><th>Requested</th><th>Available</th><th>Status</th><th>Action</th></tr></thead><tbody>${requests.map(r => `<tr><td>${r.ambassador_name}</td><td>NGN ${Number(r.requested_amount).toLocaleString()}</td><td>NGN ${Number(r.balance?.available || 0).toLocaleString()}</td><td><span class="badge ${r.status === "rejected" ? "badge-failed" : r.status === "approved" || r.status === "paid" ? "badge-success" : "badge-pending"}">${r.status}</span></td><td>${r.status === "pending" ? `<button class="subtle" data-request="approve" data-id="${r.id}">Approve</button> <button class="subtle" data-request="reject" data-id="${r.id}">Reject</button>` : r.status === "approved" ? `<button class="primary" data-pay-request="${r.id}" data-amount="${r.requested_amount}">Pay now</button>` : "—"}</td></tr>`).join("")}</tbody></table></div>`;
       el.querySelectorAll("[data-request]").forEach(button => button.addEventListener("click", async () => {
         const status = button.dataset.request === "approve" ? "approved" : "rejected";
         const adminNote = window.prompt(`Optional note for the ambassador (${status}):`) || "";
@@ -1624,38 +1864,40 @@ async function renderPayoutView() {
 
     const lineItemsHtml = payout.line_items && payout.line_items.length > 0
       ? `
-        <table>
-          <thead>
-            <tr>
-              <th>Ambassador</th>
-              <th>Enrollments</th>
-              <th>Renewals</th>
-              <th>Amount</th>
-              <th>Transfer Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${payout.line_items
-              .map((item) => {
-                const statusClass =
-                  item.transfer_status === "success"
-                    ? "badge-success"
-                    : item.transfer_status === "failed"
-                    ? "badge-failed"
-                    : "badge-pending";
-                return `
-                  <tr>
-                    <td>${item.ambassador_name || `#${item.ambassador_id}`}</td>
-                    <td>${item.enrollment_count || 0}</td>
-                    <td>${item.renewal_count || 0}</td>
-                    <td><strong>NGN ${(item.amount || 0).toLocaleString()}</strong></td>
-                    <td><span class="badge ${statusClass}">${item.transfer_status || "pending"}</span></td>
-                  </tr>
-                `;
-              })
-              .join("")}
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ambassador</th>
+                <th>Enrollments</th>
+                <th>Renewals</th>
+                <th>Amount</th>
+                <th>Transfer Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payout.line_items
+                .map((item) => {
+                  const statusClass =
+                    item.transfer_status === "success"
+                      ? "badge-success"
+                      : item.transfer_status === "failed"
+                      ? "badge-failed"
+                      : "badge-pending";
+                  return `
+                    <tr>
+                      <td>${item.ambassador_name || `#${item.ambassador_id}`}</td>
+                      <td>${item.enrollment_count || 0}</td>
+                      <td>${item.renewal_count || 0}</td>
+                      <td><strong>NGN ${(item.amount || 0).toLocaleString()}</strong></td>
+                      <td><span class="badge ${statusClass}">${item.transfer_status || "pending"}</span></td>
+                    </tr>
+                  `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </div>
       `
       : `<div class="muted" style="padding:10px 0;">No line items for this payout.</div>`;
 
@@ -1678,7 +1920,7 @@ async function renderPayoutView() {
     `;
 
     if (isDraft) {
-      document.getElementById("payout-approve-btn").addEventListener("click", () => handleApprovePayout(payout));
+      document.getElementById("payout-approve-btn")?.addEventListener("click", () => handleApprovePayout(payout));
     }
   }
 
@@ -1689,7 +1931,6 @@ async function renderPayoutView() {
     const confirmed = window.confirm(
       `This will send real money to ${ambassadorCount} ambassador(s) totaling NGN ${totalAmountStr}. Continue?`
     );
-
     if (!confirmed) return;
 
     const outputEl = document.getElementById("payout-output");
@@ -1700,18 +1941,16 @@ async function renderPayoutView() {
       outputEl.innerHTML = "";
 
       let summaryHtml = `<div class="alert-success">✔ Payout #${payout.id} successfully approved!</div>`;
-
       if (summary.paid && summary.paid.length > 0) {
         summaryHtml += `
           <div style="margin-top:10px;">
-            <strong style="color:var(--teal);">Successful Transfers (${summary.paid.length}):</strong>
+            <strong style="color:var(--primary);">Successful Transfers (${summary.paid.length}):</strong>
             <ul>
               ${summary.paid.map((p) => `<li>Ambassador #${p.ambassador_id}: NGN ${p.amount.toLocaleString()} ${p.transfer_code ? `(${p.transfer_code})` : ""}</li>`).join("")}
             </ul>
           </div>
         `;
       }
-
       if (summary.failed && summary.failed.length > 0) {
         summaryHtml += `
           <div class="alert-error" style="margin-top:10px;">
@@ -1722,7 +1961,6 @@ async function renderPayoutView() {
           </div>
         `;
       }
-
       outputEl.innerHTML = summaryHtml;
 
       const updatedPayout = await api(`/admin/payouts/${payout.id}`);
@@ -1733,7 +1971,6 @@ async function renderPayoutView() {
     }
   }
 
-  // Prompt 5.3 CSV Export Integration
   async function loadPayoutHistory() {
     const historyEl = document.getElementById("payout-history");
     renderLoading(historyEl, "Loading payout history…");
@@ -1745,38 +1982,40 @@ async function renderPayoutView() {
         return;
       }
       historyEl.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Week</th>
-              <th>Status</th>
-              <th>Total Amount</th>
-              <th>Approved By</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${payouts
-              .map((p) => {
-                const badgeClass = p.status === "approved" || p.status === "paid" ? "badge-success" : "badge-pending";
-                return `
-                  <tr>
-                    <td><strong>${p.week_label}</strong></td>
-                    <td><span class="badge ${badgeClass}">${p.status}</span></td>
-                    <td>NGN ${(p.total_amount || 0).toLocaleString()}</td>
-                    <td>${p.approved_by_name || "—"}</td>
-                    <td style="display:flex; gap:4px;">
-                      <button class="subtle" data-action="view-payout" data-id="${p.id}">View</button>
-                      <button class="subtle" data-export-payout="${p.id}" data-week="${p.week_label}">
-                        <i data-lucide="download" style="width:12px;height:12px;"></i> CSV
-                      </button>
-                    </td>
-                  </tr>
-                `;
-              })
-              .join("")}
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Week</th>
+                <th>Status</th>
+                <th>Total Amount</th>
+                <th>Approved By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payouts
+                .map((p) => {
+                  const badgeClass = p.status === "approved" || p.status === "paid" ? "badge-success" : "badge-pending";
+                  return `
+                    <tr>
+                      <td><strong>${p.week_label}</strong></td>
+                      <td><span class="badge ${badgeClass}">${p.status}</span></td>
+                      <td>NGN ${(p.total_amount || 0).toLocaleString()}</td>
+                      <td>${p.approved_by_name || "—"}</td>
+                      <td style="display:flex; gap:6px;">
+                        <button class="subtle" data-action="view-payout" data-id="${p.id}">View</button>
+                        <button class="subtle" data-export-payout="${p.id}" data-week="${p.week_label}">
+                          <i data-lucide="download" style="width:12px;height:12px;"></i> CSV
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                })
+                .join("")}
+            </tbody>
+          </table>
+        </div>
       `;
 
       if (window.lucide) window.lucide.createIcons();
@@ -1812,74 +2051,147 @@ async function renderPayoutView() {
   }
 }
 
-// ---------- Ambassador: My Groups ----------
+// ---------- My Communities Page (Ambassador) ----------
 async function renderMyGroupsView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>My Groups</h2><div id="mg-list"></div></div>`;
+  container.innerHTML = `
+    <div class="page-head">
+      <h1>My Communities</h1>
+      <p>Communities you manage across markets, banks, schools, and associations.</p>
+    </div>
+    <div id="mg-list"></div>
+  `;
   const listEl = document.getElementById("mg-list");
-  renderLoading(listEl, "Loading your groups…");
+  renderLoading(listEl, "Loading communities…");
 
   try {
-    const groups = await api("/groups/mine");
+    const [groups, policies] = await Promise.all([
+      api("/groups/mine").catch(() => []),
+      api("/me/policies").catch(() => []),
+    ]);
+
     if (groups.length === 0) {
-      renderEmptyState(listEl, "No groups created yet — create one from the Enroll tab", "layers");
+      renderEmptyState(listEl, "No communities created yet — create one when enrolling customers", "layers");
       return;
     }
+
     listEl.innerHTML = `
-      <table>
-        <thead><tr><th>Name</th><th>Type</th><th>Created</th></tr></thead>
-        <tbody>${groups.map(g => `<tr><td>${g.name}</td><td>${g.type}</td><td>${g.created_at}</td></tr>`).join("")}</tbody>
-      </table>`;
+      <div class="community-grid">
+        ${groups.map(g => {
+          const count = policies.filter(p => p.group_id == g.id).length;
+          const createdDate = g.created_at ? g.created_at.split("T")[0] : "";
+          return `
+            <div class="community-card">
+              <div class="community-info">
+                <div class="community-icon"><i data-lucide="layers"></i></div>
+                <div>
+                  <div class="community-name">${esc(g.name)}</div>
+                  <div class="community-meta">${esc(g.type)} · ${count} members</div>
+                  ${createdDate ? `<div class="muted" style="font-size:0.75rem; margin-top:2px;">Created: ${createdDate}</div>` : ""}
+                </div>
+              </div>
+              <button class="subtle" data-enroll-group="${g.id}">Enroll Member</button>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    listEl.querySelectorAll("[data-enroll-group]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const groupId = btn.dataset.enrollGroup;
+        setActiveTab("enroll");
+        setTimeout(() => {
+          const grpSelect = document.getElementById("e-groupId");
+          if (grpSelect) grpSelect.value = groupId;
+        }, 100);
+      });
+    });
+
   } catch (err) {
     renderError(listEl, err);
   }
 }
 
-// ---------- Ambassador: My Earnings ----------
+// ---------- My Earnings Page (Ambassador) ----------
 async function renderMySummaryView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="page-head"><h1>My Earnings</h1><p class="muted">Your commission, payment requests, and payout history.</p></div><div id="ms-content"></div>`;
+  container.innerHTML = `<div class="page-head"><h1>My Earnings</h1><p>Your commission earnings, payment requests, and payout history.</p></div><div id="ms-content"></div>`;
   const contentEl = document.getElementById("ms-content");
   renderLoading(contentEl, "Calculating your earnings…");
 
   try {
     const s = await api("/me/earnings");
-    const money = (v) => `NGN ${Number(v || 0).toLocaleString()}`;
-    const stat = (icon, label, value, tone = "", hint = "") => `
-      <div class="stat-card ${tone}">
-        <div class="stat-icon"><i data-lucide="${icon}"></i></div>
-        <div class="stat-label">${label}</div>
-        <div class="stat-value">${value}</div>
-        ${hint ? `<div class="stat-hint">${hint}</div>` : ""}
-      </div>`;
+    const money = (v) => `₦${Number(v || 0).toLocaleString()}`;
+
     contentEl.innerHTML = `
+      <!-- 3 Statistic Cards -->
       <div class="stat-grid">
-        ${stat("wallet", "Available to request", money(s.available), "tone-teal")}
-        ${stat("check-circle-2", "Already paid", money(s.paid), "tone-gold")}
-        ${stat("trending-up", "Lifetime commission", money(s.earned), "", `${money(s.pending)} currently requested`)}
-      </div>
-      <div class="card">
-        <h3>Request payout</h3>
-        <div class="grid">
-          <input id="payout-request-amount" type="number" min="1" max="${s.available}" placeholder="Amount in NGN" />
-          <input id="payout-request-note" placeholder="Optional note to admin" />
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="wallet"></i></div>
+          <div class="stat-label">Available Commission</div>
+          <div class="stat-value">${money(s.available)}</div>
+          <div class="stat-hint">Ready to withdraw</div>
         </div>
-        <button class="primary" id="payout-request-submit">Request payment</button>
-        <div id="payout-request-output"></div>
+        <div class="stat-card tone-gold">
+          <div class="stat-icon"><i data-lucide="check-circle-2"></i></div>
+          <div class="stat-label">Already Paid</div>
+          <div class="stat-value">${money(s.paid)}</div>
+          <div class="stat-hint">Transferred to bank</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon"><i data-lucide="trending-up"></i></div>
+          <div class="stat-label">Lifetime Commission</div>
+          <div class="stat-value">${money(s.earned)}</div>
+          <div class="stat-hint">${money(s.pending)} currently pending</div>
+        </div>
       </div>
+
+      <!-- Request Withdrawal -->
       <div class="card">
-        <h3>Request history</h3>
-        ${s.requests.length ? `<table><thead><tr><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${s.requests.map(r => `<tr><td><strong>NGN ${Number(r.requested_amount).toLocaleString()}</strong></td><td><span class="badge ${r.status === "rejected" ? "badge-failed" : r.status === "paid" ? "badge-success" : "badge-pending"}">${r.status}</span></td><td>${r.created_at}</td></tr>`).join("")}</tbody></table>` : `<div class="muted">No payment requests yet.</div>`}
+        <h2>Request Withdrawal</h2>
+        <div class="grid">
+          <input id="payout-request-amount" type="number" min="1" max="${s.available}" placeholder="Enter amount in NGN" />
+          <input id="payout-request-note" placeholder="Optional note for admin" />
+        </div>
+        <button class="primary" id="payout-request-submit">Request Payout</button>
+        <div id="payout-request-output" style="margin-top:10px;"></div>
+      </div>
+
+      <!-- Payment History Cards -->
+      <div class="card">
+        <h2>Payment History</h2>
+        ${s.requests.length ? `
+          <div class="history-card-grid">
+            ${s.requests.map(r => {
+              const statusClass = r.status === "rejected" ? "badge-failed" : r.status === "paid" ? "badge-success" : "badge-pending";
+              const dateStr = r.created_at ? r.created_at.split("T")[0] : "";
+              return `
+                <div class="history-card">
+                  <div>
+                    <div class="history-amount">NGN ${Number(r.requested_amount).toLocaleString()}</div>
+                    <div class="history-date">${dateStr} ${r.note ? `· ${esc(r.note)}` : ""}</div>
+                  </div>
+                  <span class="badge ${statusClass}">${r.status}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : `<div class="empty-state"><i data-lucide="clock"></i><p>No payout requests yet.</p></div>`}
       </div>
     `;
+
     if (window.lucide) window.lucide.createIcons();
-    document.getElementById("payout-request-submit").addEventListener("click", () => {
-      runWithLoading(document.getElementById("payout-request-submit"), "Requesting…", async () => {
+
+    document.getElementById("payout-request-submit")?.addEventListener("click", () => {
+      runWithLoading(document.getElementById("payout-request-submit"), "Submitting request…", async () => {
         const output = document.getElementById("payout-request-output");
         try {
           const result = await api("/me/payout-requests", { method: "POST", body: JSON.stringify({ amount: document.getElementById("payout-request-amount").value, note: document.getElementById("payout-request-note").value }) });
           out("payout-request-output", result);
-          setTimeout(renderMySummaryView, 900);
+          setTimeout(renderMySummaryView, 1200);
         } catch (err) { renderError(output, err); }
       });
     });
@@ -1888,7 +2200,6 @@ async function renderMySummaryView() {
   }
 }
 
-// Helper: Calculate ISO week string (e.g. 2026-W30)
 function getIsoWeekLabel(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = (d.getUTCDay() + 6) % 7;
@@ -1899,7 +2210,7 @@ function getIsoWeekLabel(date) {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
 
-// ---------- Enroll (shared by all roles) ----------
+// ---------- Combined Enroll Customer Page (3-Step Wizard) ----------
 async function renderEnrollView() {
   const container = document.getElementById("views");
   const isAmbassador = state.user.role === "ambassador";
@@ -1913,51 +2224,200 @@ async function renderEnrollView() {
   }
 
   container.innerHTML = `
-    ${isAmbassador ? `
-    <div class="card">
-      <h2>Create a Group</h2>
-      <p class="muted">Create one before enrolling if this is a new bank/market/school you're working.</p>
-      <div class="grid">
-        <input id="g-name" placeholder="Group name (e.g. GTBank Lagos Staff)" />
-        <select id="g-type">
-          <option value="Bank">Bank</option>
-          <option value="Market">Market</option>
-          <option value="School">School</option>
-          <option value="Association">Association</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <button class="primary" id="g-create">Create Group</button>
-      <pre class="output" id="g-output"></pre>
-    </div>` : ""}
+    <div class="page-head">
+      <h1>Enroll Customer</h1>
+      <p>Follow the 3-step guide below to complete customer enrollment.</p>
+    </div>
 
-    <div class="card">
-      <h2>Enroll Customer</h2>
-      <div class="grid">
-        <input id="e-firstName" placeholder="First name" />
-        <input id="e-lastName" placeholder="Last name" />
-        <input id="e-phoneNumber" placeholder="Phone number (2348...)" />
-        <input id="e-email" placeholder="Email (optional)" />
-        <div style="grid-column:1 / -1">
-          <label class="muted">Choose a plan</label>
-          <div id="e-planCards" class="plan-card-wrap">Fetching available health plans…</div>
-          <div id="e-planSummary" class="plan-summary muted">Select a plan to continue.</div>
+    <!-- Stepper Navigation Tabs -->
+    <div class="workflow-stepper">
+      <div class="step-item active" id="step-tab-1"><span class="step-num">1</span> ${isAmbassador ? "Community & Info" : "Customer Info"}</div>
+      <div class="step-item" id="step-tab-2"><span class="step-num">2</span> Select Plan</div>
+      <div class="step-item" id="step-tab-3"><span class="step-num">3</span> Payment Summary</div>
+    </div>
+
+    <!-- Step 1 Panel: Community & Customer Info -->
+    <div id="wizard-panel-1" class="wizard-step-panel active">
+      <div class="card">
+        ${isAmbassador ? `
+          <h2>Step 1: Select Community</h2>
+          <div class="grid">
+            <div>
+              <label class="input-label">Community / Group</label>
+              <div style="display:flex; gap:8px;">
+                <select id="e-groupId" style="flex:1;"><option value="">Select community…</option>${groupOptions}</select>
+                <button type="button" class="subtle" id="toggle-new-group-btn">+ Create</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="inline-create-group-box" class="card hidden" style="background:var(--surface-alt); margin-bottom:16px;">
+            <h3>+ Create New Community</h3>
+            <div class="grid">
+              <input id="g-name" placeholder="Community Name (e.g. Sabon Gari Market)" />
+              <select id="g-type">
+                <option value="Market">Market</option>
+                <option value="Bank">Bank</option>
+                <option value="School">School</option>
+                <option value="Association">Association</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <button type="button" class="primary" id="g-create">Save Community</button>
+            <div id="g-output" style="margin-top:8px;"></div>
+          </div>
+        ` : ""}
+
+        <h2>Customer Information</h2>
+        <div class="grid">
+          <div class="grid-2">
+            <div><label class="input-label">First Name *</label><input id="e-firstName" placeholder="e.g. Salma" /></div>
+            <div><label class="input-label">Last Name *</label><input id="e-lastName" placeholder="e.g. Ibrahim" /></div>
+          </div>
+          <div class="grid-2">
+            <div><label class="input-label">Phone Number *</label><input id="e-phoneNumber" placeholder="2348123456789" /></div>
+            <div><label class="input-label">Email (Optional)</label><input id="e-email" placeholder="customer@email.com" /></div>
+          </div>
+          <div><label class="input-label">Location</label><input id="e-location" placeholder="e.g. Kano, Nigeria" /></div>
+          <div class="grid-2">
+            <div><label class="input-label">Gender</label><select id="e-gender"><option value="Female">Female</option><option value="Male">Male</option></select></div>
+            <div><label class="input-label">Date of Birth</label><input id="e-dateOfBirth" type="date" /></div>
+          </div>
         </div>
+
+        <div style="margin-top:20px;">
+          <button type="button" class="primary" id="goto-step-2" style="width:100%;">Next: Select Health Plan →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 Panel: Health Plan Selection -->
+    <div id="wizard-panel-2" class="wizard-step-panel">
+      <div class="card">
+        <h2>Step 2: Choose a Health Plan</h2>
+        <p class="muted">Select one of the health plans below to proceed.</p>
+        
+        <div id="e-planCards" class="plan-card-wrap">Fetching available health plans…</div>
         <input id="e-planCode" type="hidden" />
         <input id="e-planName" type="hidden" />
-        <input id="e-location" placeholder="Location (e.g. Lagos, Nigeria)" />
-        <select id="e-gender"><option value="Female">Female</option><option value="Male">Male</option></select>
-        <input id="e-dateOfBirth" type="date" />
-        <div class="muted" style="grid-column:1 / -1">Clicking Enroll will open the Paystack checkout automatically.</div>
-        ${isAmbassador ? `<select id="e-groupId"><option value="">Select group\u2026</option>${groupOptions}</select>` : ""}
+
+        <div style="display:flex; gap:12px; margin-top:24px;">
+          <button type="button" class="subtle" id="goto-step-1">← Back to Info</button>
+          <button type="button" class="primary" id="goto-step-3" style="flex:1;">Next: Payment Summary →</button>
+        </div>
       </div>
-      <button class="primary" id="e-submit">Enroll</button>
-      <pre class="output" id="e-output"></pre>
+    </div>
+
+    <!-- Step 3 Panel: Payment Summary & Submit -->
+    <div id="wizard-panel-3" class="wizard-step-panel">
+      <div class="card">
+        <h2>Step 3: Review &amp; Continue to Payment</h2>
+        
+        <div id="e-paymentSummaryBox" class="plan-summary-box">
+          <div class="payment-summary-row"><span>Customer Name</span><strong id="summary-cust-name">—</strong></div>
+          <div class="payment-summary-row"><span>Phone Number</span><strong id="summary-cust-phone">—</strong></div>
+          <div class="payment-summary-row"><span>Plan Selected</span><strong id="summary-plan-name">—</strong></div>
+          <div class="payment-summary-row"><span>Plan Amount</span><strong id="summary-plan-price">—</strong></div>
+          <div class="payment-summary-row"><span>Payment Fee</span><strong>NGN 0</strong></div>
+          <div class="payment-summary-row total"><span>Total Amount to Pay</span><strong id="summary-total-price">—</strong></div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:24px;">
+          <button type="button" class="subtle" id="backto-step-2">← Back to Plans</button>
+          <button type="button" class="primary" id="e-submit" style="flex:1;">Continue to Payment</button>
+        </div>
+        <div id="e-output" style="margin-top:10px;"></div>
+      </div>
     </div>
   `;
 
+  // Multi-step wizard panel navigation logic
+  const panel1 = document.getElementById("wizard-panel-1");
+  const panel2 = document.getElementById("wizard-panel-2");
+  const panel3 = document.getElementById("wizard-panel-3");
+  const tab1 = document.getElementById("step-tab-1");
+  const tab2 = document.getElementById("step-tab-2");
+  const tab3 = document.getElementById("step-tab-3");
+
+  function switchStep(stepNum) {
+    panel1.classList.toggle("active", stepNum === 1);
+    panel2.classList.toggle("active", stepNum === 2);
+    panel3.classList.toggle("active", stepNum === 3);
+
+    tab1.classList.toggle("active", stepNum === 1);
+    tab2.classList.toggle("active", stepNum === 2);
+    tab3.classList.toggle("active", stepNum === 3);
+
+    tab1.classList.toggle("completed", stepNum > 1);
+    tab2.classList.toggle("completed", stepNum > 2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  document.getElementById("goto-step-2")?.addEventListener("click", () => {
+    const fn = document.getElementById("e-firstName").value.trim();
+    const ln = document.getElementById("e-lastName").value.trim();
+    const phone = document.getElementById("e-phoneNumber").value.trim();
+
+    if (!fn || !ln || !phone) {
+      showToast("Please fill in first name, last name, and phone number.", "warning");
+      return;
+    }
+    switchStep(2);
+  });
+
+  document.getElementById("goto-step-1")?.addEventListener("click", () => switchStep(1));
+
+  document.getElementById("goto-step-3")?.addEventListener("click", () => {
+    const planCode = document.getElementById("e-planCode").value;
+    if (!planCode) {
+      showToast("Please click to select a health plan first.", "warning");
+      return;
+    }
+    const fn = document.getElementById("e-firstName").value.trim();
+    const ln = document.getElementById("e-lastName").value.trim();
+    const phone = document.getElementById("e-phoneNumber").value.trim();
+
+    document.getElementById("summary-cust-name").textContent = `${fn} ${ln}`;
+    document.getElementById("summary-cust-phone").textContent = phone;
+    switchStep(3);
+  });
+
+  document.getElementById("backto-step-2")?.addEventListener("click", () => switchStep(2));
+  tab1?.addEventListener("click", () => switchStep(1));
+  tab2?.addEventListener("click", () => {
+    if (document.getElementById("e-firstName").value.trim()) switchStep(2);
+  });
+  tab3?.addEventListener("click", () => {
+    if (document.getElementById("e-planCode").value) switchStep(3);
+  });
+
+  // Inline group creation toggle handler
+  if (isAmbassador) {
+    const toggleBtn = document.getElementById("toggle-new-group-btn");
+    const groupCard = document.getElementById("inline-create-group-box");
+    toggleBtn?.addEventListener("click", () => {
+      groupCard?.classList.toggle("hidden");
+    });
+
+    document.getElementById("g-create")?.addEventListener("click", () => {
+      runWithLoading(document.getElementById("g-create"), "Saving…", async () => {
+        const output = document.getElementById("g-output");
+        try {
+          const data = await api("/groups", {
+            method: "POST",
+            body: JSON.stringify({ name: document.getElementById("g-name").value, type: document.getElementById("g-type").value }),
+          });
+          output.innerHTML = `<div class="alert-success">✔ Community created!</div>`;
+          setTimeout(() => renderEnrollView(), 800);
+        } catch (err) {
+          renderError(output, err);
+        }
+      });
+    });
+  }
+
+  // Fetch and render health plans
   const planCards = document.getElementById("e-planCards");
-  const planSummary = document.getElementById("e-planSummary");
   const planCodeField = document.getElementById("e-planCode");
   const planNameField = document.getElementById("e-planName");
 
@@ -1967,16 +2427,14 @@ async function renderEnrollView() {
         const plansData = await api("/plans/health");
         const plans = normalizePlans(plansData);
         renderPlanCards(planCards, plans, {
-          emptyText: "No plans were returned by the provider.",
+          emptyText: "No health plans returned by provider.",
           onSelect: (plan) => {
-            const { code, name, price, desc } = planCardMeta(plan);
+            const { code, name, price } = planCardMeta(plan);
             planCodeField.value = code;
             planNameField.value = name;
-            const line = price
-              ? `Selected: <strong>${name}</strong> · <strong>${price}</strong>`
-              : `Selected: <strong>${name}</strong>`;
-            const feeNote = `<div class="muted">You’ll pay the plan price at checkout.</div>`;
-            planSummary.innerHTML = (desc ? `${line}<br><span class="muted">${desc}</span>` : line) + feeNote;
+            document.getElementById("summary-plan-name").textContent = name;
+            document.getElementById("summary-plan-price").textContent = price || "NGN 0";
+            document.getElementById("summary-total-price").textContent = price || "NGN 0";
           },
         });
       } catch (err) {
@@ -1985,38 +2443,23 @@ async function renderEnrollView() {
     })();
   }
 
-  if (isAmbassador) {
-    document.getElementById("g-create").addEventListener("click", () => {
-      runWithLoading(document.getElementById("g-create"), "Creating…", async () => {
-        try {
-          const data = await api("/groups", {
-            method: "POST",
-            body: JSON.stringify({ name: document.getElementById("g-name").value, type: document.getElementById("g-type").value }),
-          });
-          out("g-output", data);
-          renderEnrollView();
-        } catch (err) {
-          out("g-output", err.data || err.message);
-        }
-      });
-    });
-  }
-
-  document.getElementById("e-submit").addEventListener("click", () => {
+  // Submit enrollment -> Paystack checkout
+  document.getElementById("e-submit")?.addEventListener("click", () => {
     const payload = {
-      firstName: document.getElementById("e-firstName").value,
-      lastName: document.getElementById("e-lastName").value,
-      phoneNumber: document.getElementById("e-phoneNumber").value,
-      email: document.getElementById("e-email").value,
+      firstName: document.getElementById("e-firstName").value.trim(),
+      lastName: document.getElementById("e-lastName").value.trim(),
+      phoneNumber: document.getElementById("e-phoneNumber").value.trim(),
+      email: document.getElementById("e-email").value.trim(),
       planCode: document.getElementById("e-planCode").value,
       planName: document.getElementById("e-planName").value,
       paymentMethod: "paystack",
-      location: document.getElementById("e-location").value,
+      location: document.getElementById("e-location").value.trim(),
       gender: document.getElementById("e-gender").value,
       dateOfBirth: document.getElementById("e-dateOfBirth").value,
     };
     if (isAmbassador) payload.groupId = document.getElementById("e-groupId").value;
-    runWithLoading(document.getElementById("e-submit"), "Opening checkout…", async () => {
+
+    runWithLoading(document.getElementById("e-submit"), "Opening Paystack…", async () => {
       try {
         const data = await api("/subscriptions", { method: "POST", body: JSON.stringify(payload) });
         if (data.paymentRequired && data.authorizationUrl) {
@@ -2027,7 +2470,7 @@ async function renderEnrollView() {
           out("e-output", data);
         }
         clearFields(["e-firstName", "e-lastName", "e-phoneNumber", "e-email", "e-location", "e-gender", "e-dateOfBirth", "e-groupId"]);
-        clearPlanSelection("e-planCards", "e-planSummary");
+        clearPlanSelection("e-planCards", "e-paymentSummaryBox");
       } catch (err) {
         out("e-output", err.data || err.message);
       }
@@ -2035,34 +2478,121 @@ async function renderEnrollView() {
   });
 }
 
-// ---------- Ambassador: Bulk Enroll ----------
+// ---------- Bulk Enrollment Page ----------
 async function renderBulkEnrollView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>Bulk Enroll</h2><p class="muted">Add up to 20 people on the same plan, review the total, and make one secure payment.</p><div id="bulk-form"></div></div>`;
+  container.innerHTML = `
+    <div class="page-head">
+      <h1>Bulk Enrollment</h1>
+      <p>Enroll up to 20 customers on a single plan with one combined payment.</p>
+    </div>
+    <div id="bulk-form"></div>
+  `;
   const form = document.getElementById("bulk-form");
+  renderLoading(form, "Loading community & plan options…");
+
   try {
     const [groups, plansData] = await Promise.all([api("/groups/mine"), api("/plans/health")]);
     const plans = normalizePlans(plansData);
-    form.innerHTML = `<select id="bulk-group"><option value="">Choose your group</option>${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join("")}</select><select id="bulk-plan" style="margin-top:8px"><option value="">Choose one plan for this batch</option>${plans.map(p => { const m = getPlanMeta(p); const price = Number(m.price); return `<option value="${m.code}" data-price="${m.price}">${m.name} — NGN ${price.toLocaleString()} per person</option>`; }).join("")}</select><div id="bulk-rows" style="margin-top:12px"></div><button class="subtle" id="bulk-add">Add person</button><button class="primary" id="bulk-pay" style="margin-left:6px">Review & pay</button><div id="bulk-output"></div>`;
+
+    form.innerHTML = `
+      <div class="card">
+        <h2>1. Select Community &amp; Plan</h2>
+        <div class="grid">
+          <div>
+            <label class="input-label">Community / Group</label>
+            <select id="bulk-group"><option value="">Choose community…</option>${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join("")}</select>
+          </div>
+          <div>
+            <label class="input-label">Select Plan (Applies to all)</label>
+            <select id="bulk-plan"><option value="">Choose health plan…</option>${plans.map(p => { const m = getPlanMeta(p); const n = Number(m.price); return `<option value="${m.code}" data-price="${n}">${m.name} — NGN ${n.toLocaleString()}/person</option>`; }).join("")}</select>
+          </div>
+        </div>
+
+        <h2 style="margin-top:20px;">2. Add Customer Details (Max 20)</h2>
+        <div id="bulk-rows"></div>
+        
+        <div style="margin-top:12px;">
+          <button class="subtle" id="bulk-add">+ Add Customer Card</button>
+        </div>
+
+        <!-- Totals Summary Card -->
+        <div class="plan-summary-box" style="margin-top:20px;">
+          <h3 style="margin:0 0 10px; color:var(--primary-deep);">Batch Summary</h3>
+          <div class="payment-summary-row"><span>Number of Customers</span><strong id="bulk-summary-count">1</strong></div>
+          <div class="payment-summary-row"><span>Plan Total</span><strong id="bulk-summary-plan-total">NGN 0</strong></div>
+          <div class="payment-summary-row"><span>Payment Fee</span><strong>NGN 0</strong></div>
+          <div class="payment-summary-row total"><span>Grand Total</span><strong id="bulk-summary-grand-total">NGN 0</strong></div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <button class="primary" id="bulk-pay" style="width:100%;">Proceed to Payment</button>
+        </div>
+        <div id="bulk-output" style="margin-top:10px;"></div>
+      </div>
+    `;
+
     const rows = document.getElementById("bulk-rows");
+    
+    function updateTotals() {
+      const count = rows.children.length;
+      const selectedPlan = document.getElementById("bulk-plan");
+      const unitPrice = Number(selectedPlan.options[selectedPlan.selectedIndex]?.dataset.price || 0);
+      const total = count * unitPrice;
+
+      document.getElementById("bulk-summary-count").textContent = count;
+      document.getElementById("bulk-summary-plan-total").textContent = `NGN ${total.toLocaleString()}`;
+      document.getElementById("bulk-summary-grand-total").textContent = `NGN ${total.toLocaleString()}`;
+    }
+
     function addRow() {
       if (rows.children.length >= 20) return;
-      const row = document.createElement("div"); row.className = "card bulk-row";
-      row.innerHTML = `<input placeholder="First name" data-field="firstName" /><input placeholder="Last name" data-field="lastName" style="margin-top:6px" /><input placeholder="Phone number" data-field="phoneNumber" style="margin-top:6px" /><input placeholder="Email (optional)" data-field="email" style="margin-top:6px" /><input placeholder="Location" data-field="location" style="margin-top:6px" /><input type="date" data-field="dateOfBirth" style="margin-top:6px" /><select data-field="gender" style="margin-top:6px"><option value="">Gender</option><option>Male</option><option>Female</option></select><button class="subtle bulk-remove" type="button" style="margin-top:6px">Remove</button>`;
-      row.querySelector(".bulk-remove").onclick = () => row.remove(); rows.appendChild(row);
+      const index = rows.children.length + 1;
+      const row = document.createElement("div"); 
+      row.className = "bulk-row";
+      row.innerHTML = `
+        <div class="bulk-row-header">
+          <span>Customer #${index}</span>
+          ${index > 1 ? `<button class="subtle bulk-remove" type="button" style="padding:4px 8px; min-height:0; color:var(--danger);">Remove</button>` : ""}
+        </div>
+        <div class="grid-2">
+          <input placeholder="First name" data-field="firstName" />
+          <input placeholder="Last name" data-field="lastName" />
+        </div>
+        <div class="grid-2" style="margin-top:6px;">
+          <input placeholder="Phone number (2348...)" data-field="phoneNumber" />
+          <input placeholder="Email (optional)" data-field="email" />
+        </div>
+        <div class="grid-2" style="margin-top:6px;">
+          <input placeholder="Location" data-field="location" />
+          <input type="date" data-field="dateOfBirth" />
+        </div>
+        <select data-field="gender" style="margin-top:6px;"><option value="">Select gender</option><option>Male</option><option>Female</option></select>
+      `;
+
+      row.querySelector(".bulk-remove")?.addEventListener("click", () => {
+        row.remove();
+        updateTotals();
+      });
+      rows.appendChild(row);
+      updateTotals();
     }
+
     addRow();
     document.getElementById("bulk-add").onclick = addRow;
+    document.getElementById("bulk-plan").onchange = updateTotals;
+
     document.getElementById("bulk-pay").onclick = () => {
       const customers = [...rows.children].map(row => Object.fromEntries([...row.querySelectorAll("[data-field]")].map(el => [el.dataset.field, el.value.trim()])));
       const selectedPlan = document.getElementById("bulk-plan");
       const planTotal = Number(selectedPlan.options[selectedPlan.selectedIndex]?.dataset.price || 0) * customers.length;
-      const total = planTotal;
-      if (!window.confirm(`You are about to pay NGN ${total.toLocaleString()} for ${customers.length} customer(s). Continue?`)) return;
+
+      if (!window.confirm(`You are about to pay NGN ${planTotal.toLocaleString()} for ${customers.length} customer(s). Continue?`)) return;
+      
       runWithLoading(document.getElementById("bulk-pay"), "Preparing payment…", async () => {
         try {
           const result = await api("/bulk-orders", { method: "POST", body: JSON.stringify({ groupId: document.getElementById("bulk-group").value, planCode: selectedPlan.value, customers }) });
-          out("bulk-output", { message: `Opening secure payment for ${result.customerCount} customers…`, paymentRequired: true });
+          out("bulk-output", { message: `Opening secure Paystack checkout for ${result.customerCount} customers…`, paymentRequired: true });
           window.location.assign(result.authorizationUrl);
         } catch (err) { renderError(document.getElementById("bulk-output"), err); }
       });
@@ -2070,31 +2600,36 @@ async function renderBulkEnrollView() {
   } catch (err) { renderError(form, err); }
 }
 
-// ---------- Look Up (shared) ----------
+// ---------- Customer Lookup Page ----------
 function renderLookupView() {
   const container = document.getElementById("views");
   container.innerHTML = `
+    <div class="page-head">
+      <h1>Customer Lookup</h1>
+      <p>Search any customer record by phone number or policy number.</p>
+    </div>
     <div class="card">
-      <h2>Look Up Subscription</h2>
-      <div class="row">
-        <select id="l-type"><option value="phone">By phone number</option><option value="policy">By policy number</option></select>
-        <input id="l-value" placeholder="e.g. 2348123456789" />
-        <button class="primary" id="l-submit">Look up</button>
+      <div class="grid">
+        <select id="l-type"><option value="phone">Search by Phone Number</option><option value="policy">Search by Policy Number</option></select>
+        <input id="l-value" placeholder="Enter phone number or policy number…" />
       </div>
-      <pre class="output" id="l-output"></pre>
+      <button class="primary" id="l-submit" style="width:100%;">Find Customer</button>
+      <div id="l-output" style="margin-top:14px;"></div>
     </div>
   `;
-  document.getElementById("l-submit").addEventListener("click", () => {
+
+  document.getElementById("l-submit")?.addEventListener("click", () => {
     const type = document.getElementById("l-type").value;
     const value = document.getElementById("l-value").value.trim();
     const outputEl = document.getElementById("l-output");
-    if (!value) return out("l-output", { error: "Enter a value" });
-    runWithLoading(document.getElementById("l-submit"), "Looking up…", async () => {
+    if (!value) return out("l-output", { error: "Enter a phone or policy number." });
+
+    runWithLoading(document.getElementById("l-submit"), "Searching…", async () => {
       renderLoading(outputEl, `Searching for ${value}…`);
       try {
         const path = type === "phone" ? `/subscriptions/phone/${encodeURIComponent(value)}` : `/subscriptions/policy/${encodeURIComponent(value)}`;
         const data = await api(path);
-        out("l-output", data);
+        renderLookupResult(data, outputEl);
       } catch (err) {
         out("l-output", err.data || err.message);
       }
@@ -2102,30 +2637,135 @@ function renderLookupView() {
   });
 }
 
-// ---------- Renew (shared) ----------
+function renderLookupResult(data, container) {
+  if (!data || data.error) {
+    return out(container.id, data);
+  }
+
+  // Handle unwrapping nested response wrappers from API
+  const root = data.subscription || data.policy || data.data || data.result || data;
+
+  const extract = (keys) => {
+    for (const k of keys) {
+      if (root[k] !== undefined && root[k] !== null && root[k] !== "") {
+        if (typeof root[k] === "object" && !Array.isArray(root[k])) {
+          const sub = root[k];
+          return sub.name || sub.title || sub.code || sub.displayName || null;
+        }
+        return root[k];
+      }
+      if (data[k] !== undefined && data[k] !== null && data[k] !== "") {
+        if (typeof data[k] === "object" && !Array.isArray(data[k])) {
+          const sub = data[k];
+          return sub.name || sub.title || sub.code || sub.displayName || null;
+        }
+        return data[k];
+      }
+    }
+    return null;
+  };
+
+  const name = extract(["customer_name", "customerName", "fullName", "full_name", "name", "customer"]) || "Customer Profile";
+  const phone = extract(["phone", "phoneNumber", "phone_number", "customer_phone", "customerPhone"]) || "—";
+  const policyNum = extract(["wellahealth_policy_number", "policy_number", "policyNumber", "policyCode", "policy_code", "policy"]) || "—";
+  const plan = extract(["plan_name", "planName", "plan_code", "planCode", "plan", "title"]) || "—";
+
+  const rawStart = extract(["start_date", "startDate", "effective_date", "effectiveDate", "created_at", "createdAt", "start", "commencementDate"]);
+  const rawEnd = extract(["end_date", "endDate", "expiry_date", "expiryDate", "expiration_date", "expirationDate", "end", "dueDate"]);
+
+  const formatDate = (val) => {
+    if (!val) return "—";
+    const str = String(val).trim();
+    if (str.includes("T")) return str.split("T")[0];
+    if (str.includes(" ")) return str.split(" ")[0];
+    return str;
+  };
+
+  const startDate = formatDate(rawStart);
+  const endDate = formatDate(rawEnd);
+  const status = extract(["status", "policyStatus", "state"]) || "Active";
+  const statusBadge = String(status).toLowerCase() === "active" ? "badge-success" : "badge-failed";
+
+  container.innerHTML = `
+    <div class="profile-card">
+      <div class="profile-header">
+        <div class="profile-avatar"><i data-lucide="user"></i></div>
+        <div>
+          <div class="profile-name">${esc(name)}</div>
+          <div class="profile-phone">📞 ${esc(phone)}</div>
+        </div>
+        <span class="badge ${statusBadge}" style="margin-left:auto;">${status}</span>
+      </div>
+      <div class="profile-details-grid">
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Policy Number</div>
+          <div class="profile-detail-value">${esc(policyNum)}</div>
+        </div>
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Health Plan</div>
+          <div class="profile-detail-value">${esc(plan)}</div>
+        </div>
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Start Date</div>
+          <div class="profile-detail-value">${startDate}</div>
+        </div>
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Expiry Date</div>
+          <div class="profile-detail-value">${endDate}</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <button class="primary" id="lookup-renew-btn" data-phone="${esc(phone)}"><i data-lucide="repeat"></i> Renew Customer</button>
+      </div>
+    </div>
+  `;
+
+  if (window.lucide) window.lucide.createIcons();
+
+  document.getElementById("lookup-renew-btn")?.addEventListener("click", () => {
+    setActiveTab("renew");
+    setTimeout(() => {
+      const phoneInput = document.getElementById("r-phoneNumber");
+      if (phoneInput) phoneInput.value = phone;
+    }, 100);
+  });
+}
+
+// ---------- Renew Customer Page ----------
 function renderRenewView() {
   const container = document.getElementById("views");
   container.innerHTML = `
+    <div class="page-head">
+      <h1>Renew Customer</h1>
+      <p>Renew any customer's plan by entering their phone number.</p>
+    </div>
     <div class="card">
-      <h2>Renew Subscription</h2>
-      <p class="muted">Any agent or ambassador can renew any customer \u2014 not limited to who originally enrolled them.</p>
+      <h2>Step 1: Enter Customer Phone Number</h2>
       <div class="grid">
-        <input id="r-phoneNumber" placeholder="Phone number" />
-        <div style="grid-column:1 / -1">
-          <label class="muted">Choose a plan</label>
-          <div id="r-planCards" class="plan-card-wrap">Fetching available health plans…</div>
-          <div id="r-planSummary" class="plan-summary muted">Select a plan to continue.</div>
-        </div>
-        <input id="r-planCode" type="hidden" />
-        <div class="muted" style="grid-column:1 / -1">Clicking Renew will open the Paystack checkout automatically.</div>
+        <input id="r-phoneNumber" placeholder="Phone number (2348...)" />
       </div>
-      <button class="primary" id="r-submit">Renew</button>
-      <pre class="output" id="r-output"></pre>
+
+      <h2 style="margin-top:20px;">Step 2: Select Health Plan</h2>
+      <div id="r-planCards" class="plan-card-wrap">Fetching health plans…</div>
+      <input id="r-planCode" type="hidden" />
+
+      <!-- Payment Summary -->
+      <div id="r-paymentSummaryBox" class="plan-summary-box hidden">
+        <h3 style="margin:0 0 10px; color:var(--primary-deep);">Step 3: Review Payment</h3>
+        <div class="payment-summary-row"><span>Selected Plan</span><strong id="r-summary-plan-name">—</strong></div>
+        <div class="payment-summary-row"><span>Plan Amount</span><strong id="r-summary-plan-price">—</strong></div>
+        <div class="payment-summary-row total"><span>Total Amount</span><strong id="r-summary-total-price">—</strong></div>
+      </div>
+
+      <div style="margin-top:20px;">
+        <button class="primary" id="r-submit" style="width:100%;">Continue to Payment</button>
+      </div>
+      <div id="r-output" style="margin-top:10px;"></div>
     </div>
   `;
 
   const planCards = document.getElementById("r-planCards");
-  const planSummary = document.getElementById("r-planSummary");
+  const summaryBox = document.getElementById("r-paymentSummaryBox");
   const planCodeField = document.getElementById("r-planCode");
 
   if (planCards && planCodeField) {
@@ -2134,15 +2774,14 @@ function renderRenewView() {
         const plansData = await api("/plans/health");
         const plans = normalizePlans(plansData);
         renderPlanCards(planCards, plans, {
-          emptyText: "No plans were returned by the provider.",
+          emptyText: "No plans returned by provider.",
           onSelect: (plan) => {
-            const { code, name, price, desc } = planCardMeta(plan);
+            const { code, name, price } = planCardMeta(plan);
             planCodeField.value = code;
-            const line = price
-              ? `Selected: <strong>${name}</strong> · <strong>${price}</strong>`
-              : `Selected: <strong>${name}</strong>`;
-            const feeNote = `<div class="muted">You’ll pay the plan price at checkout.</div>`;
-            planSummary.innerHTML = (desc ? `${line}<br><span class="muted">${desc}</span>` : line) + feeNote;
+            summaryBox.classList.remove("hidden");
+            document.getElementById("r-summary-plan-name").textContent = name;
+            document.getElementById("r-summary-plan-price").textContent = price || "NGN 0";
+            document.getElementById("r-summary-total-price").textContent = price || "NGN 0";
           },
         });
       } catch (err) {
@@ -2151,9 +2790,9 @@ function renderRenewView() {
     })();
   }
 
-  document.getElementById("r-submit").addEventListener("click", () => {
+  document.getElementById("r-submit")?.addEventListener("click", () => {
     const payload = {
-      phoneNumber: document.getElementById("r-phoneNumber").value,
+      phoneNumber: document.getElementById("r-phoneNumber").value.trim(),
       planCode: document.getElementById("r-planCode").value,
       paymentMethod: "paystack",
     };
@@ -2168,7 +2807,7 @@ function renderRenewView() {
           out("r-output", data);
         }
         clearFields(["r-phoneNumber", "r-planCode"]);
-        clearPlanSelection("r-planCards", "r-planSummary");
+        clearPlanSelection("r-planCards", "r-paymentSummaryBox");
       } catch (err) {
         out("r-output", err.data || err.message);
       }
@@ -2176,43 +2815,47 @@ function renderRenewView() {
   });
 }
 
-// ---------- My Enrollments (agent / customer / admin) ----------
+// ---------- My Enrollments (Agent / Customer) ----------
 async function renderMyPoliciesView() {
   const container = document.getElementById("views");
-  container.innerHTML = `<div class="card"><h2>My Enrollments</h2><div id="mp-list"></div></div>`;
+  container.innerHTML = `<div class="page-head"><h1>My Customers</h1><p>Customer accounts you have enrolled.</p></div><div id="mp-list"></div>`;
   const listEl = document.getElementById("mp-list");
-  renderLoading(listEl, "Loading your enrollments…");
+  renderLoading(listEl, "Loading enrollments…");
 
   try {
     const policies = await api("/me/policies");
     if (policies.length === 0) {
-      renderEmptyState(listEl, "No enrollments created yet", "file-text");
+      renderEmptyState(listEl, "No enrollments completed yet", "file-text");
       return;
     }
     listEl.innerHTML = `
-      <table>
-        <thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody>
-          ${policies.map(p => {
-            const badgeClass = p.status === "Active" ? "badge-success" : p.status === "Cancelled" || p.status === "Expired" ? "badge-failed" : "badge-pending";
-            return `<tr><td><strong>${p.customer_name}</strong><div class="muted">${p.customer_phone || ""}</div></td><td>${p.plan_code}</td><td><span class="badge ${badgeClass}">${p.status}</span></td><td>${p.created_at}</td></tr>`;
-          }).join("")}
-        </tbody>
-      </table>`;
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              ${policies.map(p => {
+                const badgeClass = p.status === "Active" ? "badge-success" : p.status === "Cancelled" || p.status === "Expired" ? "badge-failed" : "badge-pending";
+                return `<tr><td><strong>${p.customer_name}</strong><div class="muted">${p.customer_phone || ""}</div></td><td>${p.plan_code}</td><td><span class="badge ${badgeClass}">${p.status}</span></td><td>${p.created_at ? p.created_at.split("T")[0] : ""}</td></tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
   } catch (err) {
     renderError(listEl, err);
   }
 }
 
-// ---------- Read Manual (full per-role guide) ----------
+// ---------- Read Manual (Full User Manual) ----------
 const MANUAL_COMMON = `
   <h2>Getting Started</h2>
   <h3>Logging in</h3>
-  <p>Open SehaNet and enter the <strong>username</strong> and <strong>password</strong> your admin gave you, then click <strong>Log in</strong>. If you don't have login details yet, ask your admin to create an account for you.</p>
+  <p>Open SehaNet and enter the <strong>username</strong> and <strong>password</strong> your admin gave you, then click <strong>Log in</strong>. Customers who registered themselves log in with the username and password they created at sign-up.</p>
   <h3>Changing your password</h3>
-  <p>Click the <strong>key icon</strong> at the top of the screen, enter your current password and a new one (at least 6 characters), type it again to confirm, and click <strong>Update</strong>. The app signs you out if you're idle for 2 minutes — that's a security feature, not a bug.</p>
-  <h3>Signing out</h3>
-  <p>Click the <strong>Log out</strong> button at the top of the screen whenever you finish working. Never share your password with anyone, and don't leave yourself logged in on a shared computer.</p>
+  <p>Click the <strong>key icon / Password button</strong> at the top of the screen, enter your current password and a new one (at least 6 characters), type it again to confirm, and click <strong>Update</strong>.</p>
+  <h3>Sessions and security</h3>
+  <p>The app automatically signs you out after <strong>2 minutes of inactivity</strong> for security. Always click <strong>Log out</strong> when you finish working. Never share your password or customer data.</p>
 `;
 
 const MANUAL_COMMISSION_ENGINE = `
@@ -2220,10 +2863,10 @@ const MANUAL_COMMISSION_ENGINE = `
   <p>SehaNet's money model is simple. When a customer pays for a plan:</p>
   <ol>
     <li>The customer pays the <strong>plan price</strong>.</li>
-    <li><strong>WellaHealth's cut to admin</strong> (the percentage in Commission Settings) is the share of the plan price that comes to the business. This is the admin's income from the sale.</li>
-    <li>An <strong>Ambassador's commission</strong> is a percentage of that WellaHealth cut — <em>not</em> a percentage of the full customer payment. A different rate applies to new enrollments vs. renewals.</li>
+    <li><strong>WellaHealth's cut to admin</strong> (the percentage set in Commission Settings) is the share of the plan price that comes to the business. This is the admin's income from the sale.</li>
+    <li>An <strong>Ambassador's commission</strong> is a percentage of <em>that WellaHealth cut</em> — not a percentage of the full customer payment. Different rates apply to new enrollments and renewals.</li>
   </ol>
-  <p>So one new enrollment of NGN 5,000 with a 20% WellaHealth cut and a 30% ambassador rate looks like this:</p>
+  <p>Example — one new enrollment of NGN 5,000 with a 20% WellaHealth cut and a 30% ambassador rate:</p>
   <ul>
     <li>WellaHealth cut to admin: NGN 5,000 × 20% = <strong>NGN 1,000</strong></li>
     <li>Ambassador commission: NGN 1,000 × 30% = <strong>NGN 300</strong></li>
@@ -2235,186 +2878,126 @@ const MANUAL_COMMISSION_ENGINE = `
 const MANUAL_BY_ROLE = {
   admin: `
     <h1>SehaNet — Administrator Manual</h1>
-    <p>This guide walks through every tab available to an admin, in order. Read the sections that apply to what you're doing today.</p>
+    <p>This guide walks through every feature and tab available to administrators.</p>
     ${MANUAL_COMMON}
-    <h2>Dashboard</h2>
-    <p>The Dashboard is a live summary of the whole business. It shows:</p>
+    <h2>Business Dashboard</h2>
+    <p>A live summary of the whole business:</p>
     <ul>
-      <li><strong>Payments recorded</strong> — total money that came in from policies and renewals.</li>
+      <li><strong>Payments recorded</strong> — total money in from policies and renewals.</li>
       <li><strong>Admin net before expenses</strong> — all recorded payments less ambassador commission owed.</li>
-      <li><strong>Admin net after expenses</strong> — your actual income: the WellaHealth cut (plan payments × the % set in Commission Settings), less ambassador commission owed. See "How Commission Works" below.</li>
-      <li><strong>Ambassador commission owed / paid</strong> — what ambassadors have earned and what has already been paid out. The gap is the outstanding balance.</li>
-      <li><strong>Customers / Active policies</strong> — total customer records and currently-active policies.</li>
+      <li><strong>Admin net after expenses</strong> — your actual income: the WellaHealth cut less ambassador commission owed.</li>
+      <li><strong>Ambassador commission owed / paid</strong> — what ambassadors have earned and what has been paid out.</li>
+      <li><strong>Customers / Active policies</strong> — total customer records and active policies.</li>
     </ul>
-    <p>These figures are calculated from recorded data only; nothing here is typed in by hand.</p>
 
     <h2>Agents &amp; Ambassadors</h2>
-    <h3>Creating an account</h3>
-    <p>Fill in the person's <strong>name, phone, username, and password</strong> (you choose it — they can change it themselves later). Pick a role:</p>
-    <ul>
-      <li><strong>Agent (unpaid)</strong> — can enroll, look up, and renew customers, but earns no commission and uses no Groups.</li>
-      <li><strong>Ambassador (paid)</strong> — earns commission and works through Groups. When you select Ambassador, bank fields appear.</li>
-    </ul>
-    <p>For an Ambassador, choose the <strong>bank</strong> and enter the <strong>account number</strong>. SehaNet verifies the account against the bank and shows the real account holder's name before saving — always confirm this matches the person you intend to pay.</p>
-    <h3>Editing someone</h3>
-    <p>Click <strong>Edit</strong> next to a user to change their name, phone, or bank details, or to set a <strong>personal commission rate</strong> that overrides the default. Clicking <strong>Save &amp; Verify Bank</strong> re-checks the account number before saving.</p>
-    <h3>Blocking, unblocking, removing</h3>
-    <ul>
-      <li><strong>Block</strong> — temporary pause. The user can't log in while blocked. You must give a reason. <strong>Unblock</strong> restores access any time.</li>
-      <li><strong>Remove</strong> — permanent, and it cannot be undone. For an Ambassador you can optionally <strong>reassign future commissions</strong> to another active Ambassador; this only affects renewals going forward. Anything already earned is untouched and still gets paid.</li>
-    </ul>
+    <p><strong>Creating an account:</strong> Fill in name, phone, username, password, and pick role (Agent or Ambassador). For Ambassadors, select the bank and enter account number — SehaNet automatically verifies the account holder name with Paystack before saving.</p>
+    <p><strong>Editing someone:</strong> Click <strong>Edit</strong> to change bank details or set custom personal commission rates.</p>
+    <p><strong>Blocking &amp; Removing:</strong> Block temporarily pauses login access. Remove permanently deletes an account, with an option to reassign future commissions to another active ambassador.</p>
 
-    <h2>Policies</h2>
-    <p>The full directory of every enrollment. <strong>Search</strong> by customer name or phone, or <strong>filter by status</strong> (Active, Cancelled, Expired). The list is paginated — use Previous/Next to move through results. Each row shows the customer, plan, WellaHealth policy number, amount paid, status, who enrolled them, and the policy end date.</p>
+    <h2>Policies Directory</h2>
+    <p>Full directory of enrollments. Search by customer name or phone number, or filter by policy status (Active, Cancelled, Expired).</p>
 
     <h2>Renewals Due</h2>
-    <p>Every policy across the whole system that expires within the next 14 days, soonest first. Rows due in 3 days or less are highlighted. Use the phone number link to call or SMS the customer and remind them to renew — reminders are still sent manually.</p>
+    <p>Policies expiring within the next 14 days, sorted soonest first. Highlighted when expiring within 3 days.</p>
 
-    <h2>Groups</h2>
-    <p>A read-only view of every Group Ambassadors have created (which bank, market, school, or association each one covers). Groups are created by Ambassadors themselves, not by you.</p>
+    <h2>Groups / Communities</h2>
+    <p>Read-only view of communities created by Ambassadors (bank, market, school, association).</p>
 
     <h2>Commission Settings</h2>
-    <p>Three percentages control all money calculations:</p>
-    <ul>
-      <li><strong>WellaHealth's cut to admin (%)</strong> — the share of each plan payment that comes to your business.</li>
-      <li><strong>Ambassador rate — new enrollment (%)</strong> — what an Ambassador earns from a new sign-up, as a share of the WellaHealth cut above.</li>
-      <li><strong>Ambassador rate — renewal (%)</strong> — the same idea for renewals.</li>
-    </ul>
-    <p>Click <strong>Save Settings</strong> when done. Changes only affect activity going forward. You can also override the rate for one specific Ambassador from their profile in Agents &amp; Ambassadors.</p>
+    <p>Set WellaHealth cut to admin %, Ambassador new enrollment rate %, and Ambassador renewal rate %.</p>
 
     <h2>Weekly Payout</h2>
-    <p>This is where Ambassadors actually get paid.</p>
-    <h3>Load a draft</h3>
-    <p>Click <strong>Load / Create Draft</strong> for the current week (leave the week field blank), or type a specific week (e.g. 2026-W30) to catch up on a past one.</p>
-    <h3>Review</h3>
-    <p>The draft lists each Ambassador, how many enrollments and renewals they had, and the exact amount owed. Check these numbers before paying — this is the amount of money that will leave your account.</p>
-    <h3>Approve &amp; Pay</h3>
-    <p>Clicking <strong>Approve &amp; Pay</strong> initiates real Paystack bank transfers to each Ambassador's verified account. There is no undo, so double-check the total first. A failed transfer (e.g. a bad account number) is clearly marked and doesn't block the others; fix the account details and retry.</p>
-    <h3>Payout History</h3>
-    <p>Every past payout is kept here, and you can export any week as a CSV spreadsheet for your records.</p>
-    <h3>Ambassador Payment Requests</h3>
-    <p>When an Ambassador requests a payment from My Earnings, it appears here with their available balance. <strong>Approve</strong> to accept it, <strong>Reject</strong> to decline (optionally leaving a note), or <strong>Pay now</strong> to send the money immediately via Paystack. Only approve amounts you're sure about.</p>
+    <p>Load draft payouts for the week, review Ambassador line items, approve &amp; execute real Paystack bank transfers, export weekly CSV reports, and review Ambassador withdrawal requests.</p>
 
     <h2>Enroll</h2>
-    <p>Register a single customer exactly like an Agent would: fill in their details, pick a plan (the price is shown), and click <strong>Enroll</strong>. The customer is taken to the secure Paystack checkout and, once payment succeeds, their WellaHealth policy is created automatically. The same phone number can never be enrolled twice.</p>
+    <p>Register single customers into health plans with automatic Paystack checkout.</p>
 
-    <h2>Look Up</h2>
-    <p>Find any customer by <strong>phone number</strong> or <strong>WellaHealth policy number</strong>. Results show the full subscription details, including nested payment information.</p>
+    <h2>Customer Lookup</h2>
+    <p>Search by phone or policy number to view formatted profile cards.</p>
 
-    <h2>Renew</h2>
-    <p>Renew any customer in the system: enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the Paystack checkout and their policy end date is extended automatically.</p>
+    <h2>Renew Customer</h2>
+    <p>Renew any customer policy by phone number and plan selection.</p>
 
     ${MANUAL_COMMISSION_ENGINE}
-
-    <h2>Security notes</h2>
-    <p>Never share your password, Paystack keys, or customer data. Always confirm an Ambassador's bank details before approving a real transfer, and never pay a payout amount you haven't reviewed in the draft.</p>
   `,
 
   ambassador: `
     <h1>SehaNet — Ambassador Manual</h1>
-    <p>As an Ambassador you enroll and renew customers and earn commission for it. This guide explains every tab you see.</p>
+    <p>As an Ambassador you enroll and renew customers in communities and earn commission.</p>
     ${MANUAL_COMMON}
     ${MANUAL_COMMISSION_ENGINE}
 
-    <h2>Enroll</h2>
-    <h3>Create a Group first</h3>
-    <p>A <strong>Group</strong> represents the community you're working — a bank's staff, a market, a school, and so on. On the Enroll tab, give your Group a name (e.g. "GTBank Lagos Staff") and pick a type (Bank, Market, School, Association, or Other), then click <strong>Create Group</strong>. You only do this once per community; after that you pick it from the dropdown.</p>
-    <h3>Enrolling one customer</h3>
+    <h2>Ambassador Dashboard</h2>
+    <p>Your main hub displaying greeting stats (Total Customers, Renewals Due, Available Commission, Lifetime Commission), Quick Action cards, and My Communities grid.</p>
+
+    <h2>Enroll Customer (Combined Workflow)</h2>
     <ol>
-      <li>Pick the Group this customer belongs to (or create a new one).</li>
-      <li>Fill in the customer's <strong>first name, last name, phone number</strong> (in the format 2348...), email (optional), <strong>location, gender, and date of birth</strong>.</li>
-      <li>Choose a plan from the cards. The summary shows the plan price.</li>
-      <li>Click <strong>Enroll</strong> — the customer is taken to the secure Paystack checkout. When payment succeeds, their WellaHealth policy is created automatically and you'll see the confirmation.</li>
+      <li><strong>Step 1: Select Community</strong> — Choose an existing group or click <strong>+ Create</strong> to add a new community (e.g. GTBank Staff, Sabon Gari Market).</li>
+      <li><strong>Step 2: Customer Information</strong> — Fill in first name, last name, phone (format 2348...), email, location, gender, and date of birth.</li>
+      <li><strong>Step 3: Select Health Plan</strong> — Click a health plan card to view prices and coverage details.</li>
+      <li><strong>Step 4: Payment Summary</strong> — Review plan amount and grand total.</li>
+      <li><strong>Step 5: Continue to Payment</strong> — Opens the secure Paystack checkout. When payment succeeds, WellaHealth policy is created automatically.</li>
     </ol>
-    <p><strong>You can't enroll the same phone number twice.</strong> If someone is already a customer, use <strong>Renew</strong> instead.</p>
 
-    <h2>Bulk Enroll</h2>
-    <p>For up to <strong>20 people on the same plan</strong> in one payment:</p>
+    <h2>Bulk Enrollment</h2>
+    <p>Enroll up to 20 customers on one plan in a single transaction:</p>
     <ol>
-      <li>Choose your <strong>Group</strong> and one <strong>plan</strong> for the whole batch.</li>
-      <li>Click <strong>Add person</strong> to fill in each customer's details (a name, phone, location, date of birth, and gender are required for every person).</li>
-      <li>Click <strong>Review &amp; pay</strong>. You'll see the total (all plan prices for the batch) and confirm.</li>
-      <li>The batch opens in the secure Paystack checkout. Once paid, SehaNet creates each customer's policy automatically.</li>
+      <li>Select your community group and health plan.</li>
+      <li>Click <strong>+ Add Customer Card</strong> to fill details for each person.</li>
+      <li>Review batch totals (customer count, plan total, grand total).</li>
+      <li>Click <strong>Proceed to Payment</strong> for single Paystack checkout.</li>
     </ol>
-    <p>All phone numbers in a batch must be different, and none may already be enrolled.</p>
 
-    <h2>Renewals Due</h2>
-    <p>Your worklist: your own customers whose plans expire within the next 14 days, soonest first. Rows due in 3 days or less are highlighted. Call or message them to offer a renewal.</p>
+    <h2>Renewals Due (Task Manager)</h2>
+    <p>Your worklist of expiring customer policies. Displays customer name, plan, days remaining, urgent highlight badges (expiring within 3 days), <strong>Call button</strong> (phone link), and <strong>Renew button</strong> which pre-fills the renewal page.</p>
 
-    <h2>Look Up</h2>
-    <p>Find any customer in the system by <strong>phone number</strong> or <strong>policy number</strong> — useful for checking a customer's plan before renewing them.</p>
+    <h2>Customer Lookup</h2>
+    <p>Search any customer by phone number or policy number to view profile card details and quick renew action.</p>
 
-    <h2>Renew</h2>
-    <p>You can renew <strong>any</strong> customer, not just ones you enrolled. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout and their policy end date extends automatically.</p>
+    <h2>Renew Customer</h2>
+    <p>Renew any customer in the system by entering their phone number, selecting a plan, and completing payment.</p>
 
-    <h2>My Groups</h2>
-    <p>A list of every Group you've created, with its type and when it was made.</p>
+    <h2>My Communities</h2>
+    <p>Grid view of all community groups you manage with member counts and direct enrollment links.</p>
 
     <h2>My Earnings</h2>
-    <p>Your money, in one place:</p>
-    <ul>
-      <li><strong>Available to request</strong> — commission you've earned and can withdraw right now.</li>
-      <li><strong>Already paid</strong> — what has been paid out to you.</li>
-      <li><strong>Lifetime commission</strong> — everything you've ever earned, including amounts currently sitting in a request.</li>
-    </ul>
-    <h3>Requesting payment</h3>
-    <p>Enter an amount up to your available balance, optionally add a note, and click <strong>Request payment</strong>. Your admin reviews it in Weekly Payout; if approved, the money is sent to the bank account on file. Track the status of each request in <strong>Request history</strong> (Pending / Approved / Paid / Rejected).</p>
-
-    <h2>Security notes</h2>
-    <p>Keep your username and password private. You can only see your own customers and earnings — you cannot view another Ambassador's.</p>
+    <p>View Available Commission, Paid Out, and Lifetime Commission stat cards. Request payouts directly to your verified bank account and track payment request history cards.</p>
   `,
 
   agent: `
     <h1>SehaNet — Agent Manual</h1>
-    <p>As an Agent you enroll, look up, and renew customers. You don't earn commission and you don't use Groups. This guide explains every tab you see.</p>
+    <p>As an Agent you enroll, lookup, and renew customers. You do not earn commission and do not use groups.</p>
     ${MANUAL_COMMON}
 
+    <h2>Agent Dashboard</h2>
+    <p>Displays enrolled customer count, renewals due, and quick action shortcuts for Enroll, Renew, Lookup, and My Customers.</p>
+
     <h2>Enroll</h2>
-    <ol>
-      <li>Fill in the customer's <strong>first name, last name, phone number</strong> (format 2348...), email (optional), <strong>location, gender, and date of birth</strong>.</li>
-      <li>Choose a plan from the cards. The summary shows the plan price.</li>
-      <li>Click <strong>Enroll</strong> — the customer is taken to the secure Paystack checkout. When payment succeeds, their WellaHealth policy is created automatically.</li>
-    </ol>
-    <p><strong>You can't enroll the same phone number twice.</strong> If someone is already a customer, use <strong>Renew</strong> instead.</p>
+    <p>Fill in customer information, choose a health plan card, review payment summary, and proceed to secure Paystack checkout.</p>
 
     <h2>Renewals Due</h2>
-    <p>Your worklist: customers you enrolled whose plans expire within the next 14 days, soonest first. Rows due in 3 days or less are highlighted. Contact them to offer a renewal.</p>
+    <p>Task manager showing customers you enrolled whose policies expire soon. Use Call and Renew action buttons for quick follow-up.</p>
 
-    <h2>Look Up</h2>
-    <p>Find any customer by <strong>phone number</strong> or <strong>WellaHealth policy number</strong> — handy before renewing someone.</p>
+    <h2>Customer Lookup</h2>
+    <p>Search any customer record by phone or policy number to view profile details.</p>
 
-    <h2>Renew</h2>
-    <p>You can renew <strong>any</strong> customer in the system. Enter their phone number, choose a plan, and click <strong>Renew</strong>. They pay via the secure checkout and their policy end date extends automatically.</p>
+    <h2>Renew Customer</h2>
+    <p>Renew any customer policy by phone number and plan selection.</p>
 
-    <h2>My Enrollments</h2>
-    <p>Everyone you've personally signed up, with their current status (Active, Cancelled, Expired, etc.) and when they were enrolled. Use this for follow-up.</p>
-
-    <h2>Security notes</h2>
-    <p>Keep your username and password private. You only see your own enrollment records.</p>
+    <h2>My Customers</h2>
+    <p>List of all customers you have personally enrolled and their active policy statuses.</p>
   `,
 
   customer: `
     <h1>SehaNet — Customer Manual</h1>
-    <p>SehaNet is how you buy and manage your WellaHealth plan. This guide explains the tabs available to you.</p>
     ${MANUAL_COMMON}
-
     <h2>My Plan</h2>
-    <p>Your current policy: the plan you're on, its status, and when it was created. If your policy is active, you're covered — keep an eye on the end date so you can renew before it expires.</p>
-
+    <p>View your active health plan policy details, status, and coverage end date.</p>
     <h2>Enroll</h2>
-    <p>Buy a health plan:</p>
-    <ol>
-      <li>Fill in your details (your phone number must match the one on your account).</li>
-      <li>Choose a plan. The summary shows the plan price.</li>
-      <li>Click <strong>Enroll</strong> — you're taken to the secure Paystack checkout to pay by card.</li>
-    </ol>
-    <p>Once payment succeeds, your policy is created automatically. Your phone number can only be enrolled once.</p>
-
+    <p>Buy a health plan for yourself by filling your details and completing Paystack payment.</p>
     <h2>Plan Expiry</h2>
-    <p>Shows when your plan is due to expire (within the next 14 days), so you know when to renew and avoid a gap in cover.</p>
-
-    <h2>Security notes</h2>
-    <p>Keep your username and password private. If you think your account has been used without permission, tell your admin immediately.</p>
+    <p>Track when your health plan expires so you can renew in time without gap in cover.</p>
   `,
 };
 
@@ -2422,10 +3005,11 @@ async function renderManualView() {
   const container = document.getElementById("views");
   const content = MANUAL_BY_ROLE[state.user.role] || MANUAL_BY_ROLE.agent;
   container.innerHTML = `<div class="card"><button class="subtle manual-back-btn" id="manual-back-btn">← Back</button><div class="manual-content">${content}</div></div>`;
-  document.getElementById("manual-back-btn").addEventListener("click", () => setActiveTab(state.lastTab || (TABS_BY_ROLE[state.user.role] || [])[0]?.[0]));
+  document.getElementById("manual-back-btn")?.addEventListener("click", () => setActiveTab(state.lastTab || (TABS_BY_ROLE[state.user.role] || [])[0]?.[0]));
 }
 
-// ---------- Init ----------
+// Init
 if (state.token) {
   boot();
 }
+
