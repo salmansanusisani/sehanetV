@@ -91,15 +91,44 @@
           </div>
         </div>
         <div class="topbar-actions">
-          <button id="retakeTourBtn" class="ghost-btn" title="Retake Tour">
-            <i data-lucide="help-circle" style="width:14px;height:14px;"></i><span class="btn-label">Tour</span>
-          </button>
-          <button id="changePasswordBtn" class="ghost-btn" title="Change Password">
-            <i data-lucide="key" style="width:14px;height:14px;"></i><span class="btn-label">Password</span>
-          </button>
-          <button id="logoutBtn" class="ghost-btn">
-            <i data-lucide="log-out" style="width:14px;height:14px;"></i><span class="btn-label">Log out</span>
-          </button>
+          <div class="settings-dropdown-wrap">
+            <button id="headerSettingsBtn" class="ghost-btn icon-btn" title="Settings & Options" aria-label="Settings">
+              <i data-lucide="settings" style="width:18px;height:18px;"></i>
+            </button>
+            <div id="settingsDropdown" class="settings-dropdown hidden">
+              <div class="dropdown-header">
+                <div class="dropdown-title">Settings &amp; Options</div>
+              </div>
+              
+              <!-- Theme Selector -->
+              <div class="dropdown-section">
+                <div class="dropdown-label">Theme Mode</div>
+                <div class="theme-toggle-row">
+                  <button type="button" class="theme-option-btn" id="themeBtnLight" data-theme="light"><i data-lucide="sun" style="width:14px;height:14px;"></i> Light</button>
+                  <button type="button" class="theme-option-btn" id="themeBtnDark" data-theme="dark"><i data-lucide="moon" style="width:14px;height:14px;"></i> Dark</button>
+                </div>
+              </div>
+
+              <div class="dropdown-divider"></div>
+
+              <!-- Retake Tour -->
+              <button id="retakeTourBtn" class="dropdown-item" type="button">
+                <i data-lucide="help-circle" style="width:16px;height:16px;"></i> <span>Retake Tour</span>
+              </button>
+
+              <!-- Change Password -->
+              <button id="changePasswordBtn" class="dropdown-item" type="button">
+                <i data-lucide="key" style="width:16px;height:16px;"></i> <span>Change Password</span>
+              </button>
+
+              <div class="dropdown-divider"></div>
+
+              <!-- Log Out -->
+              <button id="logoutBtn" class="dropdown-item danger" type="button">
+                <i data-lucide="log-out" style="width:16px;height:16px;"></i> <span>Log Out</span>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 

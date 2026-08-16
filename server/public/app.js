@@ -433,6 +433,67 @@ function startTour() {
   driverObj.drive();
 }
 
+function initTheme() {
+  const savedTheme = localStorage.getItem("sehanet_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", savedTheme);
+  updateThemeButtons(savedTheme);
+}
+
+function setTheme(theme) {
+  localStorage.setItem("sehanet_theme", theme);
+  document.documentElement.setAttribute("data-theme", theme);
+  updateThemeButtons(theme);
+}
+
+function updateThemeButtons(theme) {
+  const lightBtn = document.getElementById("themeBtnLight");
+  const darkBtn = document.getElementById("themeBtnDark");
+  if (lightBtn) lightBtn.classList.toggle("active", theme === "light");
+  if (darkBtn) darkBtn.classList.toggle("active", theme === "dark");
+}
+
+function setupSettingsMenu() {
+  const settingsBtn = document.getElementById("headerSettingsBtn");
+  const dropdown = document.getElementById("settingsDropdown");
+  const lightBtn = document.getElementById("themeBtnLight");
+  const darkBtn = document.getElementById("themeBtnDark");
+
+  if (!settingsBtn || !dropdown) return;
+
+  settingsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle("hidden");
+    if (window.lucide) window.lucide.createIcons();
+  });
+
+  lightBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setTheme("light");
+    showToast("Light theme applied", "success");
+  });
+
+  darkBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    setTheme("dark");
+    showToast("Dark theme applied", "success");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!dropdown.classList.contains("hidden") && !dropdown.contains(e.target) && e.target !== settingsBtn) {
+      dropdown.classList.add("hidden");
+    }
+  });
+
+  ["retakeTourBtn", "changePasswordBtn", "logoutBtn"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("click", () => {
+      dropdown.classList.add("hidden");
+    });
+  });
+}
+
+// Call theme init immediately
+initTheme();
+
 document.getElementById("retakeTourBtn")?.addEventListener("click", () => {
   if (isMobileDevice()) {
     showToast("The interactive tour is available on desktop screens.", "info");
@@ -457,6 +518,8 @@ async function boot() {
   document.getElementById("loginError").textContent = "";
   document.getElementById("userLabel").textContent = `${state.user.name} · ${state.user.role}`;
   setupPasswordModal();
+  setupSettingsMenu();
+  initTheme();
   renderTabs();
   if (window.lucide) window.lucide.createIcons();
   showPaymentBanner();
