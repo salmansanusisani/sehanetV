@@ -433,16 +433,20 @@ function startTour() {
   driverObj.drive();
 }
 
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  if (document.body) document.body.setAttribute("data-theme", theme);
+  updateThemeButtons(theme);
+}
+
 function initTheme() {
   const savedTheme = localStorage.getItem("sehanet_theme") || "light";
-  document.documentElement.setAttribute("data-theme", savedTheme);
-  updateThemeButtons(savedTheme);
+  applyTheme(savedTheme);
 }
 
 function setTheme(theme) {
   localStorage.setItem("sehanet_theme", theme);
-  document.documentElement.setAttribute("data-theme", theme);
-  updateThemeButtons(theme);
+  applyTheme(theme);
 }
 
 function updateThemeButtons(theme) {
