@@ -21,7 +21,26 @@ router.get("/dashboard", async (req, res) => {
     const ambassadorEarned = balances.reduce((sum, b) => sum + Number(b?.earned || 0), 0);
     const ambassadorPaid = balances.reduce((sum, b) => sum + Number(b?.paid || 0), 0);
     const revenue = Number(policyTotals.revenue || 0) + Number(renewalTotals.revenue || 0);
-    res.json({ revenue, policyCount: policyTotals.count, renewalCount: renewalTotals.count, customerCount: customerTotals.count, activePolicies: activeTotals.count, ambassadorEarned, ambassadorPaid, ambassadorOutstanding: Math.max(0, ambassadorEarned - ambassadorPaid), adminNetBeforeExpenses: revenue - ambassadorEarned });
+
+    const settings = await getAllSettings();
+    const wellahealthPercent = parseFloat(settings.wellahealth_commission_percent || "0");
+    const wellahealthCut = Math.round((revenue * (wellahealthPercent / 100)) * 100) / 100;
+    const adminNetAfterExpenses = Math.round((wellahealthCut - ambassadorEarned) * 100) / 100;
+
+    res.json({
+      revenue,
+      policyCount: policyTotals.count,
+      renewalCount: renewalTotals.count,
+      customerCount: customerTotals.count,
+      activePolicies: activeTotals.count,
+      ambassadorEarned,
+      ambassadorPaid,
+      ambassadorOutstanding: Math.max(0, ambassadorEarned - ambassadorPaid),
+      adminNetBeforeExpenses: revenue - ambassadorEarned,
+      wellahealthPercent,
+      wellahealthCut,
+      adminNetAfterExpenses,
+    });
   } catch (err) {
     console.error("Dashboard failed:", err);
     res.status(500).json({ error: "Could not load dashboard figures." });
