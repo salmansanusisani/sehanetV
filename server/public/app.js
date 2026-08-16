@@ -830,24 +830,6 @@ async function renderCustomerHome() {
         <p class="greeting-subtitle">Welcome to your SehaNet Healthcare Companion portal.</p>
       </div>
 
-      <!-- Healthcare Search Companion -->
-      <div class="search-hero-box">
-        <div class="search-hero-title">What are you looking for today?</div>
-        <div class="search-input-wrap">
-          <i data-lucide="search" class="search-input-icon"></i>
-          <input id="customer-home-search" placeholder="Search health plans, doctors, lab tests, pharmacies..." />
-        </div>
-        <div class="search-pill-label">Popular Suggestions</div>
-        <div class="search-pill-grid">
-          <button class="search-pill" data-pill="health plan">Find a health plan</button>
-          <button class="search-pill" data-pill="doctor">See a doctor</button>
-          <button class="search-pill" data-pill="lab test">Book a lab test</button>
-          <button class="search-pill" data-pill="medication">Order medication</button>
-          <button class="search-pill" data-pill="pregnancy">Pregnancy care</button>
-          <button class="search-pill" data-pill="diabetes">Diabetes care</button>
-        </div>
-      </div>
-
       <!-- Active Coverage Card -->
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
@@ -1002,33 +984,6 @@ async function renderCustomerHome() {
     if (window.lucide) window.lucide.createIcons();
 
     // Event Listeners
-    content.querySelectorAll(".search-pill").forEach((pill) => {
-      pill.addEventListener("click", () => {
-        const query = pill.dataset.pill;
-        setActiveTab("search");
-        setTimeout(() => {
-          const input = document.getElementById("customer-search-input");
-          if (input) {
-            input.value = query;
-            input.dispatchEvent(new Event("input"));
-          }
-        }, 100);
-      });
-    });
-
-    document.getElementById("customer-home-search")?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const query = e.target.value;
-        setActiveTab("search");
-        setTimeout(() => {
-          const input = document.getElementById("customer-search-input");
-          if (input) {
-            input.value = query;
-            input.dispatchEvent(new Event("input"));
-          }
-        }, 100);
-      }
-    });
 
     document.getElementById("home-view-card-btn")?.addEventListener("click", () => setActiveTab("myhealthcare"));
     document.getElementById("home-renew-plan-btn")?.addEventListener("click", () => setActiveTab("myhealthcare"));
@@ -1094,8 +1049,7 @@ async function renderCustomerHealthcare() {
         </div>
 
         <div class="digital-card-actions">
-          <button class="ghost-btn" id="btn-download-card" title="Download Digital Card"><i data-lucide="download"></i> Download Card</button>
-          <button class="ghost-btn" id="btn-share-card" title="Share Health Card"><i data-lucide="share-2"></i> Share Card</button>
+          <button class="ghost-btn" id="btn-download-card" title="Download Digital Card" style="width:100%;"><i data-lucide="download"></i> Download Care Card</button>
         </div>
       </div>
 
@@ -1145,11 +1099,10 @@ async function renderCustomerHealthcare() {
     if (window.lucide) window.lucide.createIcons();
 
     document.getElementById("btn-download-card")?.addEventListener("click", () => {
-      showToast("Health card download is ready on your device.", "info");
+      downloadHealthCardImage(customerName, policyNum, planName, phone, expiryDate);
+      showToast("Downloading your HD SehaNet Care Card image…", "success");
     });
-    document.getElementById("btn-share-card")?.addEventListener("click", () => {
-      showToast("Health card link copied for sharing.", "info");
-    });
+
     document.getElementById("btn-renew-coverage")?.addEventListener("click", () => {
       setActiveTab("renew");
       setTimeout(() => {
@@ -1160,6 +1113,101 @@ async function renderCustomerHealthcare() {
   } catch (err) {
     renderError(content, err);
   }
+}
+
+function downloadHealthCardImage(customerName, policyNum, planName, phone, expiryDate) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 700;
+  const ctx = canvas.getContext("2d");
+
+  // Background Gradient
+  const grad = ctx.createLinearGradient(0, 0, 1200, 700);
+  grad.addColorStop(0, "#0A2E2B");
+  grad.addColorStop(1, "#0F6D61");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1200, 700);
+
+  // Outer Border
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(20, 20, 1160, 660);
+
+  // Watermark
+  ctx.font = "900 120px sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+  ctx.fillText("SEHANET", 550, 630);
+
+  // Brand Header
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 44px sans-serif";
+  ctx.fillText("SehaNet Care Card", 80, 110);
+
+  // Gold Chip Icon
+  const chipGrad = ctx.createLinearGradient(1020, 70, 1110, 130);
+  chipGrad.addColorStop(0, "#FDE68A");
+  chipGrad.addColorStop(1, "#D97706");
+  ctx.fillStyle = chipGrad;
+  ctx.fillRect(1020, 70, 90, 60);
+
+  // Divider Line
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(80, 160);
+  ctx.lineTo(1120, 160);
+  ctx.stroke();
+
+  // Customer Name
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "800 52px sans-serif";
+  ctx.fillText(customerName, 80, 260);
+
+  // Policy Number
+  ctx.fillStyle = "#A7F3D0";
+  ctx.font = "700 36px monospace";
+  ctx.fillText(`POLICY #: ${policyNum}`, 80, 330);
+
+  // Meta Section Line
+  ctx.beginPath();
+  ctx.moveTo(80, 410);
+  ctx.lineTo(1120, 410);
+  ctx.stroke();
+
+  // Meta Item 1: Health Plan
+  ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.font = "600 24px sans-serif";
+  ctx.fillText("HEALTH PLAN", 80, 470);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px sans-serif";
+  ctx.fillText(planName, 80, 520);
+
+  // Meta Item 2: Phone Number
+  ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.font = "600 24px sans-serif";
+  ctx.fillText("PHONE NUMBER", 500, 470);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px sans-serif";
+  ctx.fillText(phone, 500, 520);
+
+  // Meta Item 3: Expiration Date
+  ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.font = "600 24px sans-serif";
+  ctx.fillText("EXPIRES ON", 880, 470);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px sans-serif";
+  ctx.fillText(expiryDate, 880, 520);
+
+  // Footer Tagline
+  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+  ctx.font = "20px sans-serif";
+  ctx.fillText("Official SehaNet Digital Healthcare Identity Card", 80, 620);
+
+  // Trigger Download
+  const link = document.createElement("a");
+  link.download = `SehaNet-CareCard-${policyNum.replace(/[^a-zA-Z0-9-]/g, "")}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
 }
 
 // Healthcare Search Page
@@ -1200,14 +1248,13 @@ async function renderCustomerSearch() {
 
       let filtered = plans;
       if (query) {
-        const q = query.toLowerCase();
+        const q = String(query || "").toLowerCase();
         filtered = plans.filter((p) => {
           const meta = getPlanMeta(p);
-          return (
-            meta.name.toLowerCase().includes(q) ||
-            meta.code.toLowerCase().includes(q) ||
-            meta.desc.toLowerCase().includes(q)
-          );
+          const nameStr = String(meta.name || "").toLowerCase();
+          const codeStr = String(meta.code || "").toLowerCase();
+          const descStr = String(meta.description || meta.desc || "").toLowerCase();
+          return nameStr.includes(q) || codeStr.includes(q) || descStr.includes(q);
         });
       }
 
