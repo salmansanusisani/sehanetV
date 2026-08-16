@@ -1271,6 +1271,307 @@ th {
   margin-top: auto;
 }
 
+/* ---------- Customer Portal Components ---------- */
+
+/* Digital Health Card */
+.digital-health-card {
+  background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary) 100%);
+  color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.digital-health-card::after {
+  content: "SEHANET";
+  position: absolute;
+  bottom: -15px;
+  right: -10px;
+  font-size: 4.5rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.05);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.digital-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.digital-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+
+.digital-card-chip {
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #FDE68A 0%, #D97706 100%);
+  opacity: 0.9;
+}
+
+.digital-card-holder-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.digital-card-number {
+  font-family: monospace;
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  color: var(--primary-soft);
+  margin-bottom: 16px;
+}
+
+.digital-card-meta-grid {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 12px;
+  font-size: 0.8rem;
+}
+
+.digital-card-meta-item span {
+  display: block;
+  font-size: 0.68rem;
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.digital-card-meta-item strong {
+  font-weight: 700;
+  margin-top: 2px;
+  display: block;
+}
+
+.digital-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Search Hero Companion Box */
+.search-hero-box {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+
+.search-hero-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary-deep);
+  margin-bottom: 12px;
+}
+
+.search-input-wrap {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.search-input-wrap input {
+  padding-left: 42px;
+  font-size: 0.96rem;
+  border-radius: var(--radius-md);
+}
+
+.search-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  width: 18px;
+  height: 18px;
+}
+
+.search-pill-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.search-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-pill {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-heading);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.search-pill:hover {
+  background: var(--primary-tint);
+  border-color: var(--primary);
+  color: var(--primary-deep);
+}
+
+/* Category & Coming Soon Cards */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.category-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.category-card:not(.disabled):hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.category-card.disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: #F8FAFC;
+}
+
+.category-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--primary-tint);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+
+.category-card.disabled .category-icon {
+  background: #E2E8F0;
+  color: var(--muted);
+}
+
+.category-label {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--text-heading);
+}
+
+.coming-soon-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: #E2E8F0;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* Care Packages Section */
+.care-package-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.care-package-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.18s ease;
+  position: relative;
+}
+
+.care-package-card:not(.disabled):hover {
+  border-color: var(--primary);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.care-package-card.disabled {
+  opacity: 0.7;
+  background: #F8FAFC;
+}
+
+.care-package-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.care-package-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--primary-deep);
+}
+
+.care-package-desc {
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.care-package-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.care-package-tag {
+  background: var(--surface-alt);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
 .nav-overlay { display: none; }
 
 @media (max-width: 899px) {

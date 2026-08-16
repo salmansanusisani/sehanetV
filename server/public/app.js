@@ -497,9 +497,11 @@ const TABS_BY_ROLE = {
     ["mypolicies", "My Customers"],
   ],
   customer: [
-    ["mypolicies", "My Plan"],
-    ["enroll", "Enroll"],
-    ["renewalsdue", "Plan Expiry"],
+    ["home", "Home"],
+    ["myhealthcare", "My Healthcare"],
+    ["search", "Search"],
+    ["notifications", "Notifications"],
+    ["profile", "Profile"],
   ],
 };
 
@@ -518,6 +520,10 @@ const TAB_ICONS = {
   mygroups: "layers",
   mysummary: "wallet",
   mypolicies: "file-text",
+  home: "home",
+  myhealthcare: "shield-check",
+  notifications: "bell",
+  profile: "user",
 };
 
 function renderTabs() {
@@ -550,6 +556,11 @@ function setActiveTab(key) {
   
   const views = {
     dashboard: renderRoleDashboard,
+    home: renderCustomerHome,
+    myhealthcare: renderCustomerHealthcare,
+    search: state.user?.role === "customer" ? renderCustomerSearch : renderLookupView,
+    notifications: renderCustomerNotifications,
+    profile: renderCustomerProfile,
     team: renderTeamView,
     policies: renderPoliciesView,
     renewalsdue: renderRenewalsDueView,
@@ -575,7 +586,7 @@ function renderRoleDashboard() {
   if (state.user.role === "admin") return renderAdminDashboard();
   if (state.user.role === "ambassador") return renderAmbassadorDashboard();
   if (state.user.role === "agent") return renderAgentDashboard();
-  return renderMyPoliciesView();
+  return renderCustomerHome();
 }
 
 // ---------- Ambassador Dashboard ----------
@@ -790,6 +801,576 @@ async function renderAgentDashboard() {
   } catch (err) {
     renderError(content, err);
   }
+}
+
+// ---------- Customer Portal Views ----------
+
+// Home Dashboard (Healthcare Companion)
+async function renderCustomerHome() {
+  const container = document.getElementById("views");
+  container.innerHTML = `<div id="customer-home-content"></div>`;
+  const content = document.getElementById("customer-home-content");
+  renderLoading(content, "Loading your healthcare companion…");
+
+  try {
+    const [policies, renewals] = await Promise.all([
+      api("/me/policies").catch(() => []),
+      api("/me/renewals-due").catch(() => []),
+    ]);
+
+    const activePolicy = policies.find((p) => p.status === "Active") || policies[0] || null;
+    const customerName = state.user.name || state.user.fullName || state.user.username || "Customer";
+
+    const hour = new Date().getHours();
+    const greetingTime = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    content.innerHTML = `
+      <div class="greeting-banner">
+        <h1 class="greeting-title">${greetingTime}, ${esc(customerName)} 👋</h1>
+        <p class="greeting-subtitle">Welcome to your SehaNet Healthcare Companion portal.</p>
+      </div>
+
+      <!-- Healthcare Search Companion -->
+      <div class="search-hero-box">
+        <div class="search-hero-title">What are you looking for today?</div>
+        <div class="search-input-wrap">
+          <i data-lucide="search" class="search-input-icon"></i>
+          <input id="customer-home-search" placeholder="Search health plans, doctors, lab tests, pharmacies..." />
+        </div>
+        <div class="search-pill-label">Popular Suggestions</div>
+        <div class="search-pill-grid">
+          <button class="search-pill" data-pill="health plan">Find a health plan</button>
+          <button class="search-pill" data-pill="doctor">See a doctor</button>
+          <button class="search-pill" data-pill="lab test">Book a lab test</button>
+          <button class="search-pill" data-pill="medication">Order medication</button>
+          <button class="search-pill" data-pill="pregnancy">Pregnancy care</button>
+          <button class="search-pill" data-pill="diabetes">Diabetes care</button>
+        </div>
+      </div>
+
+      <!-- Active Coverage Card -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+          <h2>Active Health Coverage</h2>
+          ${activePolicy ? `<span class="badge ${activePolicy.status === "Active" ? "badge-success" : "badge-failed"}">${esc(activePolicy.status)}</span>` : '<span class="badge badge-pending">No Active Plan</span>'}
+        </div>
+        ${
+          activePolicy
+            ? `
+          <div class="grid-2">
+            <div>
+              <div class="muted" style="font-size:0.75rem;">HEALTH PLAN</div>
+              <div style="font-weight:800; font-size:1.1rem; color:var(--primary-deep);">${esc(activePolicy.plan_name || activePolicy.plan_code)}</div>
+            </div>
+            <div>
+              <div class="muted" style="font-size:0.75rem;">POLICY NUMBER</div>
+              <div style="font-weight:700; font-size:0.95rem;">${esc(activePolicy.wellahealth_policy_number || "—")}</div>
+            </div>
+          </div>
+          <div style="margin-top:12px; font-size:0.84rem;" class="muted">
+            Expiration Date: <strong>${activePolicy.end_date ? activePolicy.end_date.split("T")[0] : "—"}</strong>
+          </div>
+          <div class="row" style="margin-top:16px;">
+            <button class="primary" id="home-view-card-btn"><i data-lucide="shield-check"></i> View Health Card</button>
+            <button class="subtle" id="home-renew-plan-btn"><i data-lucide="repeat"></i> Renew Plan</button>
+          </div>
+        `
+            : `
+          <div class="empty-state" style="padding:20px;">
+            <i data-lucide="shield-alert"></i>
+            <p>You currently do not have an active health plan. Enroll today to protect yourself and family.</p>
+            <button class="primary" id="home-enroll-now-btn" style="margin-top:10px;">Enroll in a Health Plan</button>
+          </div>
+        `
+        }
+      </div>
+
+      <!-- Quick Access Healthcare Categories -->
+      <div class="quick-actions-title">Healthcare Services</div>
+      <div class="category-grid">
+        <div class="category-card" id="cat-health-plans">
+          <div class="category-icon"><i data-lucide="shield"></i></div>
+          <div class="category-label">Health Plans</div>
+          <span class="badge badge-success" style="font-size:0.65rem;">Active</span>
+        </div>
+        <div class="category-card disabled">
+          <div class="category-icon"><i data-lucide="user-check"></i></div>
+          <div class="category-label">Doctor Consult</div>
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+        <div class="category-card disabled">
+          <div class="category-icon"><i data-lucide="pill"></i></div>
+          <div class="category-label">Pharmacy</div>
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+        <div class="category-card disabled">
+          <div class="category-icon"><i data-lucide="activity"></i></div>
+          <div class="category-label">Laboratory</div>
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+        <div class="category-card disabled">
+          <div class="category-icon"><i data-lucide="heart"></i></div>
+          <div class="category-label">Pregnancy Care</div>
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+        <div class="category-card disabled">
+          <div class="category-icon"><i data-lucide="smile"></i></div>
+          <div class="category-label">Child Healthcare</div>
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <!-- Care Packages Section -->
+      <h2>Care Packages</h2>
+      <p class="muted" style="margin-top:-8px; margin-bottom:16px; font-size:0.86rem;">SehaNet bundled healthcare solutions designed for your lifestyle.</p>
+      
+      <div class="care-package-grid">
+        <div class="care-package-card" id="pkg-community">
+          <div>
+            <div class="care-package-header">
+              <div class="care-package-title">Community Care Package</div>
+              <span class="badge badge-success">Available</span>
+            </div>
+            <div class="care-package-desc" style="margin-top:8px;">Affordable healthcare coverage suitable for market traders, cooperatives, associations, and low-income households.</div>
+            <div class="care-package-tags">
+              <span class="care-package-tag">Cooperatives</span>
+              <span class="care-package-tag">Market Traders</span>
+              <span class="care-package-tag">Low-Income</span>
+            </div>
+          </div>
+          <button class="primary" style="width:100%; margin-top:14px;">Explore Package</button>
+        </div>
+
+        <div class="care-package-card" id="pkg-individual">
+          <div>
+            <div class="care-package-header">
+              <div class="care-package-title">Individual Care Package</div>
+              <span class="badge badge-success">Available</span>
+            </div>
+            <div class="care-package-desc" style="margin-top:8px;">Everyday comprehensive healthcare coverage for individuals, self-employed artisans, and students.</div>
+            <div class="care-package-tags">
+              <span class="care-package-tag">Individuals</span>
+              <span class="care-package-tag">Students</span>
+              <span class="care-package-tag">Artisans</span>
+            </div>
+          </div>
+          <button class="primary" style="width:100%; margin-top:14px;">Explore Package</button>
+        </div>
+
+        <div class="care-package-card disabled">
+          <div>
+            <div class="care-package-header">
+              <div class="care-package-title">Employer Care Package</div>
+              <span class="coming-soon-badge">Coming Soon</span>
+            </div>
+            <div class="care-package-desc" style="margin-top:8px;">Custom health plan coverage for small businesses and company employees.</div>
+          </div>
+        </div>
+
+        <div class="care-package-card disabled">
+          <div>
+            <div class="care-package-header">
+              <div class="care-package-title">Pregnancy Care Package</div>
+              <span class="coming-soon-badge">Coming Soon</span>
+            </div>
+            <div class="care-package-desc" style="margin-top:8px;">Specialized maternal health support, antenatal care, and delivery coverage.</div>
+          </div>
+        </div>
+
+        <div class="care-package-card disabled">
+          <div>
+            <div class="care-package-header">
+              <div class="care-package-title">Child Care Package</div>
+              <span class="coming-soon-badge">Coming Soon</span>
+            </div>
+            <div class="care-package-desc" style="margin-top:8px;">Pediatric consultation, immunizations, and child wellness protection.</div>
+          </div>
+        </div>
+
+        <div class="care-package-card disabled">
+          <div>
+            <div class="care-package-header">
+              <div class="care-package-title">Diabetes Management Package</div>
+              <span class="coming-soon-badge">Coming Soon</span>
+            </div>
+            <div class="care-package-desc" style="margin-top:8px;">Continuous glucose monitoring, medication delivery, and specialist advice.</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    // Event Listeners
+    content.querySelectorAll(".search-pill").forEach((pill) => {
+      pill.addEventListener("click", () => {
+        const query = pill.dataset.pill;
+        setActiveTab("search");
+        setTimeout(() => {
+          const input = document.getElementById("customer-search-input");
+          if (input) {
+            input.value = query;
+            input.dispatchEvent(new Event("input"));
+          }
+        }, 100);
+      });
+    });
+
+    document.getElementById("customer-home-search")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const query = e.target.value;
+        setActiveTab("search");
+        setTimeout(() => {
+          const input = document.getElementById("customer-search-input");
+          if (input) {
+            input.value = query;
+            input.dispatchEvent(new Event("input"));
+          }
+        }, 100);
+      }
+    });
+
+    document.getElementById("home-view-card-btn")?.addEventListener("click", () => setActiveTab("myhealthcare"));
+    document.getElementById("home-renew-plan-btn")?.addEventListener("click", () => setActiveTab("myhealthcare"));
+    document.getElementById("home-enroll-now-btn")?.addEventListener("click", () => setActiveTab("search"));
+    document.getElementById("cat-health-plans")?.addEventListener("click", () => setActiveTab("search"));
+
+    document.getElementById("pkg-community")?.addEventListener("click", () => setActiveTab("search"));
+    document.getElementById("pkg-individual")?.addEventListener("click", () => setActiveTab("search"));
+  } catch (err) {
+    renderError(content, err);
+  }
+}
+
+// My Healthcare Page
+async function renderCustomerHealthcare() {
+  const container = document.getElementById("views");
+  container.innerHTML = `<div id="healthcare-content"></div>`;
+  const content = document.getElementById("healthcare-content");
+  renderLoading(content, "Loading your health card & coverage details…");
+
+  try {
+    const policies = await api("/me/policies").catch(() => []);
+    const activePolicy = policies.find((p) => p.status === "Active") || policies[0] || null;
+    const customerName = state.user.name || state.user.fullName || state.user.username || "Customer";
+    const phone = state.user.phone || activePolicy?.customer_phone || "—";
+    const policyNum = activePolicy?.wellahealth_policy_number || "SIT-PENDING";
+    const planName = activePolicy?.plan_name || activePolicy?.plan_code || "No Active Plan";
+    const expiryDate = activePolicy?.end_date ? activePolicy.end_date.split("T")[0] : "—";
+    const status = activePolicy?.status || "Inactive";
+
+    content.innerHTML = `
+      <div class="page-head">
+        <h1>My Healthcare</h1>
+        <p>Access your digital health card, coverage information, and policy renewals.</p>
+      </div>
+
+      <!-- Digital Health Card -->
+      <div class="digital-health-card">
+        <div class="digital-card-top">
+          <div class="digital-card-brand">
+            <div class="brand-mark" style="width:30px;height:30px;"><img src="s.png" alt="SehaNet" /></div>
+            SehaNet Care Card
+          </div>
+          <div class="digital-card-chip"></div>
+        </div>
+
+        <div class="digital-card-holder-name">${esc(customerName)}</div>
+        <div class="digital-card-number">POLICY #: ${esc(policyNum)}</div>
+
+        <div class="digital-card-meta-grid">
+          <div class="digital-card-meta-item">
+            <span>HEALTH PLAN</span>
+            <strong>${esc(planName)}</strong>
+          </div>
+          <div class="digital-card-meta-item">
+            <span>PHONE NUMBER</span>
+            <strong>${esc(phone)}</strong>
+          </div>
+          <div class="digital-card-meta-item">
+            <span>EXPIRES ON</span>
+            <strong>${expiryDate}</strong>
+          </div>
+        </div>
+
+        <div class="digital-card-actions">
+          <button class="ghost-btn" id="btn-download-card" title="Download Digital Card"><i data-lucide="download"></i> Download Card</button>
+          <button class="ghost-btn" id="btn-share-card" title="Share Health Card"><i data-lucide="share-2"></i> Share Card</button>
+        </div>
+      </div>
+
+      <!-- Coverage & Policy Details -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h2>Coverage &amp; Policy Details</h2>
+          <span class="badge ${status === "Active" ? "badge-success" : "badge-failed"}">${status}</span>
+        </div>
+
+        ${
+          activePolicy
+            ? `
+          <div class="profile-details-grid">
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Policy Number</div>
+              <div class="profile-detail-value">${esc(policyNum)}</div>
+            </div>
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Health Plan</div>
+              <div class="profile-detail-value">${esc(planName)}</div>
+            </div>
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Enrollment Date</div>
+              <div class="profile-detail-value">${activePolicy.created_at ? activePolicy.created_at.split("T")[0] : "—"}</div>
+            </div>
+            <div class="profile-detail-item">
+              <div class="profile-detail-label">Expiration Date</div>
+              <div class="profile-detail-value">${expiryDate}</div>
+            </div>
+          </div>
+
+          <div style="margin-top:20px;">
+            <button class="primary" id="btn-renew-coverage" style="width:100%;"><i data-lucide="repeat"></i> Renew Coverage Now</button>
+          </div>
+        `
+            : `
+          <div class="empty-state">
+            <i data-lucide="file-text"></i>
+            <p>No active policy record found.</p>
+          </div>
+        `
+        }
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    document.getElementById("btn-download-card")?.addEventListener("click", () => {
+      showToast("Health card download is ready on your device.", "info");
+    });
+    document.getElementById("btn-share-card")?.addEventListener("click", () => {
+      showToast("Health card link copied for sharing.", "info");
+    });
+    document.getElementById("btn-renew-coverage")?.addEventListener("click", () => {
+      setActiveTab("renew");
+      setTimeout(() => {
+        const phoneInput = document.getElementById("r-phoneNumber");
+        if (phoneInput && phone) phoneInput.value = phone;
+      }, 100);
+    });
+  } catch (err) {
+    renderError(content, err);
+  }
+}
+
+// Healthcare Search Page
+async function renderCustomerSearch() {
+  const container = document.getElementById("views");
+  container.innerHTML = `
+    <div class="page-head">
+      <h1>Healthcare Search</h1>
+      <p>Search available health plans, policy records, and care services.</p>
+    </div>
+
+    <div class="card">
+      <div class="search-input-wrap">
+        <i data-lucide="search" class="search-input-icon"></i>
+        <input id="customer-search-input" placeholder="Search health plans, doctors, lab tests, pharmacies..." />
+      </div>
+
+      <div id="customer-search-results"></div>
+    </div>
+  `;
+
+  const input = document.getElementById("customer-search-input");
+  const results = document.getElementById("customer-search-results");
+
+  let searchTimer = null;
+  input?.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => performSearch(input.value.trim()), 300);
+  });
+
+  performSearch("");
+
+  async function performSearch(query) {
+    renderLoading(results, "Searching healthcare solutions…");
+    try {
+      const plansData = await api("/plans/health");
+      const plans = normalizePlans(plansData);
+
+      let filtered = plans;
+      if (query) {
+        const q = query.toLowerCase();
+        filtered = plans.filter((p) => {
+          const meta = getPlanMeta(p);
+          return (
+            meta.name.toLowerCase().includes(q) ||
+            meta.code.toLowerCase().includes(q) ||
+            meta.desc.toLowerCase().includes(q)
+          );
+        });
+      }
+
+      if (filtered.length === 0) {
+        renderEmptyState(results, `No health plans matching "${query}"`, "search");
+        return;
+      }
+
+      renderPlanCards(results, filtered, {
+        emptyText: "No plans found.",
+        onSelect: (plan) => {
+          setActiveTab("enroll");
+          setTimeout(() => {
+            const planCodeEl = document.getElementById("e-planCode");
+            if (planCodeEl) planCodeEl.value = planCardMeta(plan).code;
+          }, 100);
+        },
+      });
+    } catch (err) {
+      renderError(results, err);
+    }
+  }
+}
+
+// Notifications Page
+async function renderCustomerNotifications() {
+  const container = document.getElementById("views");
+  container.innerHTML = `
+    <div class="page-head">
+      <h1>Notifications</h1>
+      <p>Policy updates, renewal alerts, and payment confirmations.</p>
+    </div>
+    <div id="customer-notifications-list"></div>
+  `;
+
+  const listEl = document.getElementById("customer-notifications-list");
+  renderLoading(listEl, "Loading notifications…");
+
+  try {
+    const renewals = await api("/me/renewals-due").catch(() => []);
+
+    if (renewals.length === 0) {
+      listEl.innerHTML = `
+        <div class="card">
+          <div class="history-card">
+            <div>
+              <div style="font-weight:700; color:var(--primary-deep);">System Account Active</div>
+              <div class="history-date">Your account is fully active and protected.</div>
+            </div>
+            <span class="badge badge-success">OK</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = `
+      <div class="card">
+        <h2>Upcoming Expirations</h2>
+        <div class="history-card-grid">
+          ${renewals
+            .map(
+              (r) => `
+            <div class="history-card">
+              <div>
+                <div style="font-weight:700; color:var(--danger);">Policy Expiring Soon — ${esc(r.plan_name || r.plan_code)}</div>
+                <div class="history-date">Policy #${esc(r.wellahealth_policy_number || "—")} expires in ${r.days_remaining} day(s).</div>
+              </div>
+              <button class="primary renewal-renew-btn" data-renew-phone="${r.customer_phone || ""}">Renew Now</button>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+
+    listEl.querySelectorAll(".renewal-renew-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setActiveTab("renew");
+      });
+    });
+  } catch (err) {
+    renderError(listEl, err);
+  }
+}
+
+// Profile Page
+async function renderCustomerProfile() {
+  const container = document.getElementById("views");
+  const user = state.user || {};
+
+  container.innerHTML = `
+    <div class="page-head">
+      <h1>My Profile</h1>
+      <p>Manage your account details, security settings, and support preferences.</p>
+    </div>
+
+    <div class="card">
+      <div class="profile-header">
+        <div class="profile-avatar"><i data-lucide="user"></i></div>
+        <div>
+          <div class="profile-name">${esc(user.name || user.fullName || user.username)}</div>
+          <div class="profile-phone">📞 ${esc(user.phone || "—")}</div>
+        </div>
+        <span class="badge badge-success" style="margin-left:auto;">Customer</span>
+      </div>
+
+      <div class="profile-details-grid">
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Username</div>
+          <div class="profile-detail-value">${esc(user.username || "—")}</div>
+        </div>
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Email Address</div>
+          <div class="profile-detail-value">${esc(user.email || "—")}</div>
+        </div>
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Location</div>
+          <div class="profile-detail-value">${esc(user.location || "—")}</div>
+        </div>
+        <div class="profile-detail-item">
+          <div class="profile-detail-label">Gender</div>
+          <div class="profile-detail-value">${esc(user.gender || "—")}</div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px; border-top:1px solid var(--border); padding-top:16px;">
+        <h2>Security &amp; Password</h2>
+        <div class="row">
+          <button class="subtle" id="profile-change-password-btn"><i data-lucide="key"></i> Change Password</button>
+        </div>
+      </div>
+
+      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+        <h2>Notification Preferences</h2>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">
+            <span>SMS Expiry Reminders</span>
+            <input type="checkbox" checked style="width:auto;" />
+          </label>
+          <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">
+            <span>Email Payment Receipts</span>
+            <input type="checkbox" checked style="width:auto;" />
+          </label>
+        </div>
+      </div>
+
+      <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+        <h2>Customer Support</h2>
+        <div class="muted" style="font-size:0.88rem; margin-bottom:10px;">Need assistance with your plan or healthcare card?</div>
+        <a href="tel:07075664676" class="subtle" style="display:inline-flex;"><i data-lucide="phone"></i> Call Support: 07075664676</a>
+      </div>
+    </div>
+  `;
+
+  if (window.lucide) window.lucide.createIcons();
+
+  document.getElementById("profile-change-password-btn")?.addEventListener("click", () => {
+    document.getElementById("changePasswordBtn")?.click();
+  });
 }
 
 // ---------- Admin Dashboard ----------
