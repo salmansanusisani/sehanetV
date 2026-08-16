@@ -133,7 +133,7 @@ router.post("/subscriptions", async (req, res) => {
       `SELECT c.id, u.name as agent_name, u.role as agent_role
        FROM customers c
        JOIN policies p ON p.customer_id = c.id
-       JOIN users u ON u.id = p.original_agent_id
+       LEFT JOIN users u ON u.id = p.original_agent_id
        WHERE c.phone = ?
        ORDER BY p.created_at DESC LIMIT 1`,
       [phoneNumber]

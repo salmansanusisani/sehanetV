@@ -137,7 +137,7 @@ router.get("/me/renewals-due", async (req, res) => {
               DATEDIFF(p.end_date, CURDATE()) as days_remaining
        FROM policies p
        JOIN customers c ON c.id = p.customer_id
-       JOIN users u ON u.id = p.original_agent_id
+       LEFT JOIN users u ON u.id = p.original_agent_id
        WHERE ${ownerClause}
          AND p.status = 'Active'
          AND p.end_date IS NOT NULL

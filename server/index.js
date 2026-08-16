@@ -67,7 +67,7 @@ app.use(
   })
 );
 // Paystack signs the exact raw body. Keep this before JSON parsing.
-app.post("/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+app.post(["/payment/webhook", "/api/paystack/webhook"], express.raw({ type: "application/json" }), async (req, res) => {
   const secret = process.env.PAYSTACK_WEBHOOK_SECRET || process.env.PAYSTACK_SECRET_KEY;
   const signature = req.headers["x-paystack-signature"] || "";
   const expected = crypto.createHmac("sha512", secret || "").update(req.body).digest("hex");
