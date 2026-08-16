@@ -931,22 +931,15 @@ function getPlanMeta(plan) {
 }
 
 function normalizePlans(data) {
-  let list = [];
-  if (Array.isArray(data)) list = data;
-  else if (Array.isArray(data?.plans)) list = data.plans;
-  else if (Array.isArray(data?.items)) list = data.items;
-  else if (Array.isArray(data?.data)) list = data.data;
-  else if (Array.isArray(data?.result)) list = data.result;
-  else if (Array.isArray(data?.results)) list = data.results;
-  else if (Array.isArray(data?.plans?.items)) list = data.plans.items;
-  else if (Array.isArray(data?.data?.plans)) list = data.data.plans;
-
-  return list.filter((p) => {
-    const meta = getPlanMeta(p);
-    const nameStr = String(meta.name || "").toLowerCase();
-    const codeStr = String(meta.code || "").toLowerCase();
-    return !nameStr.includes("easy digital health plan") && !codeStr.includes("easy digital health plan");
-  });
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.plans)) return data.plans;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.result)) return data.result;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.plans?.items)) return data.plans.items;
+  if (Array.isArray(data?.data?.plans)) return data.data.plans;
+  return [];
 }
 
 function esc(str) {
