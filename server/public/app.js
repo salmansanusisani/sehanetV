@@ -434,7 +434,7 @@ function startTour() {
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem("sehanet_theme") || "dark";
+  const savedTheme = localStorage.getItem("sehanet_theme") || "light";
   document.documentElement.setAttribute("data-theme", savedTheme);
   updateThemeButtons(savedTheme);
 }
