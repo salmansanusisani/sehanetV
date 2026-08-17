@@ -351,29 +351,105 @@ function setupPasswordModal() {
 }
 
 // Onboarding tour
+// Onboarding tour definitions
 const TOUR_STEPS_BY_ROLE = {
-  admin: [
-    { tab: "dashboard", desc: "See customer payments, your net before and after expenses, active policies, and ambassador commission totals." },
-    { tab: "team", desc: "Create and manage agents and ambassadors." },
-    { tab: "policies", desc: "Search all customer records by name, phone, or email." },
-    { tab: "payout", desc: "Review ambassador payment requests and process bank transfers." },
-    { tab: "settings", desc: "Set commission percentages." },
+  customer: [
+    {
+      tab: "home",
+      title: "🏥 Healthcare Companion",
+      desc: "Your primary hub for active health plan coverage, care packages, and quick health actions.",
+    },
+    {
+      tab: "myhealthcare",
+      title: "💳 Digital Health Card",
+      desc: "Access your official SehaNet Care Card with 1-click HD PNG download for offline clinic access.",
+    },
+    {
+      tab: "search",
+      title: "🔍 Instant Healthcare Search",
+      desc: "Search available health plans, policy records, and care services instantly.",
+    },
+    {
+      tab: "notifications",
+      title: "🔔 Care & Renewal Alerts",
+      desc: "Never miss a coverage date with real-time expiration notifications and renewal reminders.",
+    },
+    {
+      tab: "profile",
+      title: "👤 Account & Security",
+      desc: "Manage your account details, change your password, and access direct customer support.",
+    },
   ],
   ambassador: [
-    { tab: "dashboard", desc: "Your personal hub with quick actions, customer stats, and communities." },
-    { tab: "enroll", desc: "Enroll a customer and select or create their community." },
-    { tab: "bulkenroll", desc: "Enroll up to 20 people in one batch." },
-    { tab: "renewalsdue", desc: "Follow up with expiring policies." },
-    { tab: "mysummary", desc: "View available earnings and request payouts." },
+    {
+      tab: "dashboard",
+      title: "📊 Ambassador Hub",
+      desc: "View your real-time total enrollments, active policies, and lifetime commission earnings.",
+    },
+    {
+      tab: "enroll",
+      title: "⚡ 3-Step Enrollment Wizard",
+      desc: "Enroll new customers into health plans with automatic community group attribution.",
+    },
+    {
+      tab: "bulkenroll",
+      title: "📦 Bulk Enrollment",
+      desc: "Enroll up to 20 customers in a single batch with consolidated Paystack checkout.",
+    },
+    {
+      tab: "renewalsdue",
+      title: "⏳ Renewals Due",
+      desc: "Track policies expiring within 14 days and process renewals to earn renewal commission.",
+    },
+    {
+      tab: "mysummary",
+      title: "💰 Earnings & Payouts",
+      desc: "Check your available commission balance and submit payout requests directly to the admin.",
+    },
   ],
   agent: [
-    { tab: "dashboard", desc: "Your agent hub showing active customers and quick action shortcuts." },
-    { tab: "enroll", desc: "Enroll a new customer into a health plan." },
-    { tab: "renewalsdue", desc: "Track customer policy renewal dates." },
+    {
+      tab: "dashboard",
+      title: "📊 Agent Dashboard",
+      desc: "Your sales hub showing active customer policies and quick action shortcuts.",
+    },
+    {
+      tab: "enroll",
+      title: "⚡ Customer Enrollment",
+      desc: "Enroll new customers into healthcare plans seamlessly.",
+    },
+    {
+      tab: "renewalsdue",
+      title: "⏳ Renewals Due",
+      desc: "Follow up with customers whose policies are expiring soon.",
+    },
   ],
-  customer: [
-    { tab: "mypolicies", desc: "See your health plan and policy status." },
-    { tab: "enroll", desc: "Enroll yourself in a health plan." },
+  admin: [
+    {
+      tab: "dashboard",
+      title: "💼 Business Dashboard",
+      desc: "Live overview of recorded revenue, admin net income (20% WellaHealth cut), and commission owed.",
+    },
+    {
+      tab: "team",
+      title: "👥 Agents & Ambassadors",
+      desc: "Create and manage sales partners, set custom commission rates, and manage bank accounts.",
+    },
+    {
+      tab: "policies",
+      title: "📋 Policies Directory",
+      desc: "Filter, search, and inspect all customer health policies across the entire network.",
+    },
+    {
+      tab: "payout",
+      title: "💸 Weekly Payouts",
+      desc: "Review ambassador payout requests and trigger automated Paystack bank transfers.",
+    },
+    {
+      tab: "settings",
+      title: "⚙️ Commission Settings",
+      desc: "Configure global WellaHealth cut % and default ambassador commission rates.",
+    },
   ],
 };
 
@@ -398,13 +474,14 @@ function startTour() {
   }
   if (!window.driver || !window.driver.js) return;
 
-  const steps = TOUR_STEPS_BY_ROLE[state.user.role] || [];
+  const role = state.user?.role || "customer";
+  const steps = TOUR_STEPS_BY_ROLE[role] || TOUR_STEPS_BY_ROLE.customer;
   const driverSteps = [];
 
   driverSteps.push({
     popover: {
-      title: "Welcome to SehaNet",
-      description: "Quick tour of what you can do here — tap Skip any time.",
+      title: "👋 Welcome to SehaNet",
+      description: `Quick interactive walkthrough tailored specifically for your ${role} account.`,
     },
   });
 
@@ -414,9 +491,14 @@ function startTour() {
     driverSteps.push({
       element: el,
       popover: {
-        title: el.textContent.trim(),
+        title: step.title,
         description: step.desc,
         side: "right",
+      },
+      onHighlightStarted: () => {
+        if (step.tab) {
+          setActiveTab(step.tab);
+        }
       },
     });
   }
