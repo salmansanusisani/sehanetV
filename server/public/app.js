@@ -565,7 +565,7 @@ function setupSettingsMenu() {
   });
 
   document.addEventListener("click", (e) => {
-    if (!dropdown.classList.contains("hidden") && !dropdown.contains(e.target) && e.target !== settingsBtn) {
+    if (!dropdown.classList.contains("hidden") && !dropdown.contains(e.target) && !settingsBtn.contains(e.target)) {
       dropdown.classList.add("hidden");
     }
   });
