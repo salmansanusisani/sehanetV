@@ -66,6 +66,44 @@
       border-radius: 12px; padding: 14px 16px; font-size: 0.88rem;
     }
     footer { margin-top: 18px; font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+    /* Mobile: stack each transaction vertically as a card — page scrolls
+       vertically, no horizontal scrolling. */
+    @media (max-width: 640px) {
+      body { padding: 16px 10px 32px; }
+      h1 { font-size: 1rem; }
+      .stat .value { font-size: 1.2rem; }
+      table, tbody { display: block; }
+      thead { display: none; }
+      tr {
+        display: block;
+        background: var(--cream);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 6px 12px;
+        margin: 10px 8px;
+      }
+      td {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        border-bottom: 1px dashed var(--border);
+        padding: 8px 0;
+        word-break: break-word;
+      }
+      td:last-child { border-bottom: none; }
+      td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      td.num { text-align: right; }
+    }
   </style>
 </head>
 <body>
@@ -107,12 +145,12 @@
 
         const rows = (data.transactions || []).map((t) => `
           <tr>
-            <td class="ref">${esc(t.paymentReference)}</td>
-            <td class="ref">${esc(t.policyNumber)}</td>
-            <td>${esc(new Date(t.dateTime).toLocaleString())}</td>
-            <td>${esc(t.planName)}</td>
-            <td class="num">${money(t.grossAmount)}</td>
-            <td class="num">${money(t.wellahealthShare)}</td>
+            <td class="ref" data-label="Payment Ref">${esc(t.paymentReference)}</td>
+            <td class="ref" data-label="Policy No.">${esc(t.policyNumber)}</td>
+            <td data-label="Date &amp; Time">${esc(new Date(t.dateTime).toLocaleString())}</td>
+            <td data-label="Plan">${esc(t.planName)}</td>
+            <td class="num" data-label="Gross Amount">${money(t.grossAmount)}</td>
+            <td class="num" data-label="WellaHealth Share (80%)">${money(t.wellahealthShare)}</td>
           </tr>`).join("");
 
         content.innerHTML = `
