@@ -65,8 +65,11 @@ async function ensureSchema() {
   await ensureColumn("customers", "last_contacted_at", "DATETIME");
   await ensureColumn("policies", "customer_account_id", "INT NULL");
   await ensureColumn("policies", "payment_fee", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+  await ensureColumn("policies", "enrollment_source", "VARCHAR(20) NULL");
   await ensureColumn("renewals", "payment_fee", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+  await ensureColumn("renewals", "enrollment_source", "VARCHAR(20) NULL");
   await ensureColumn("bulk_orders", "payment_fee", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+  await ensureColumn("users", "is_altbox", "TINYINT(1) NOT NULL DEFAULT 0");
   await ensureColumn("payout_requests", "paystack_transfer_code", "VARCHAR(100)");
   await ensureColumn("payout_requests", "paid_at", "DATETIME");
   await pool.query("ALTER TABLE policies MODIFY original_agent_id INT NULL");

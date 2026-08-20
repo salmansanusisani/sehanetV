@@ -68,6 +68,7 @@ router.post("/users", async (req, res) => {
     name, phone, username, password, role,
     commission_rate_new, commission_rate_renewal,
     bank_code, bank_account_number, bank_account_name,
+    is_altbox,
   } = req.body || {};
 
   if (!name || !username || !password || !role) {
@@ -95,12 +96,13 @@ router.post("/users", async (req, res) => {
 
     const [result] = await pool.execute(
       `INSERT INTO users
-        (name, phone, username, password_hash, role, status,
+        (name, phone, username, password_hash, role, status, is_altbox,
          commission_rate_new, commission_rate_renewal,
          bank_code, bank_account_number, bank_account_name)
-       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
       [
         name, phone || null, username, hashPassword(password), role,
+        role === "agent" && is_altbox ? 1 : 0,
         rateNew, rateRenewal,
         bank_code || null, bank_account_number || null, bank_account_name || null,
       ]
@@ -177,6 +179,7 @@ router.patch("/users/:id", async (req, res) => {
       "name", "phone",
       "commission_rate_new", "commission_rate_renewal",
       "bank_code", "bank_account_number", "bank_account_name",
+      "is_altbox",
     ];
     const updates = {};
     for (const key of editable) {
@@ -184,6 +187,12 @@ router.patch("/users/:id", async (req, res) => {
     }
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No editable fields provided" });
+    }
+    if ("is_altbox" in updates) {
+      if (target.role !== "agent") {
+        return res.status(400).json({ error: "Only agents can be flagged as AltBox" });
+      }
+      updates.is_altbox = updates.is_altbox ? 1 : 0;
     }
     if (target.role === "agent" && ("commission_rate_new" in updates || "commission_rate_renewal" in updates)) {
       return res.status(400).json({ error: "Unpaid agents cannot have a commission rate" });

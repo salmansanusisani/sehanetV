@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SehaNet × AltBank — Revenue Reconciliation Dashboard</title>
+  <style>
+    :root {
+      --teal: #0F6D61;
+      --teal-deep: #0A2E2B;
+      --cream: #F7F3EA;
+      --ink: #08211E;
+      --muted: #64748B;
+      --border: #E2E8F0;
+      --card: #FFFFFF;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .logo {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--teal-deep); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1rem; flex-shrink: 0;
+    }
+    h1 { font-size: 1.15rem; margin: 0; color: var(--teal-deep); }
+    header p { margin: 2px 0 0; font-size: 0.78rem; color: var(--muted); }
+    .summary {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 16px;
+    }
+    .stat .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .stat .value { font-size: 1.25rem; font-weight: 800; color: var(--teal-deep); margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .stat.accent { background: var(--teal-deep); border-color: var(--teal-deep); }
+    .stat.accent .label { color: rgba(255,255,255,0.7); }
+    .stat.accent .value { color: #fff; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden; margin-bottom: 20px;
+    }
+    .card h2 { font-size: 0.95rem; color: var(--teal-deep); margin: 0; padding: 14px 16px 0; }
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 16px 16px; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+    input, select {
+      font: inherit; font-size: 0.85rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; background: #fff; color: var(--ink);
+    }
+    button, a.btn {
+      font: inherit; font-size: 0.85rem; font-weight: 600;
+      border: none; border-radius: 999px; padding: 9px 18px;
+      cursor: pointer; text-decoration: none; display: inline-block;
+    }
+    button.primary, a.btn.primary { background: var(--teal-deep); color: #fff; }
+    button.subtle { background: var(--cream); color: var(--ink); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      background: var(--teal-deep); color: #fff;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr:hover { background: var(--cream); }
+    tbody tr:last-child td { border-bottom: none; }
+    .ref { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+    .empty { padding: 32px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+    .error {
+      background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA;
+      border-radius: 12px; padding: 14px 16px; font-size: 0.88rem;
+    }
+    footer { margin-top: 18px; font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+    /* Mobile: stack rows vertically as cards — vertical scrolling only. */
+    @media (max-width: 720px) {
+      body { padding: 16px 10px 32px; }
+      h1 { font-size: 1rem; }
+      .stat .value { font-size: 1.1rem; }
+      table, tbody { display: block; }
+      thead { display: none; }
+      tr {
+        display: block;
+        background: var(--cream);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 6px 12px;
+        margin: 10px 8px;
+      }
+      td {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        border-bottom: 1px dashed var(--border);
+        padding: 8px 0;
+        word-break: break-word;
+      }
+      td:last-child { border-bottom: none; }
+      td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      td.num { text-align: right; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">SN</div>
+      <div>
+        <h1>SehaNet × AltBank Revenue Reconciliation</h1>
+        <p>Read-only · AltBox agent enrollments · 15% of SehaNet's share remitted monthly</p>
+      </div>
+    </header>
+
+    <div id="content"><div class="empty">Loading…</div></div>
+
+    <footer>Confidential — for monthly revenue sharing reconciliation only.</footer>
+  </div>
+
+  <script>
+    const money = (v) => "₦" + Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token") || "";
+
+    function filterQueryString() {
+      const q = new URLSearchParams({ token });
+      for (const k of ["from", "to", "agent", "plan"]) {
+        const v = document.getElementById("f-" + k)?.value?.trim();
+        if (v) q.set(k, v);
+      }
+      return q.toString();
+    }
+
+    async function load() {
+      const content = document.getElementById("content");
+      try {
+        const res = await fetch("/api/v1/reconciliation/altbank?" + filterQueryString());
+        if (res.status === 503) {
+          content.innerHTML = `<div class="error">This dashboard is not configured yet — the server admin needs to set the <code>ALTBANK_DASHBOARD_TOKEN</code> environment variable.</div>`;
+          return;
+        }
+        if (res.status === 401) {
+          content.innerHTML = `<div class="error">Unauthorized. The access token in this link is invalid or outdated — ask SehaNet for a fresh dashboard link.</div>`;
+          return;
+        }
+        if (!res.ok) throw new Error("Request failed");
+        const data = await res.json();
+        const s = data.summary || {};
+
+        const stat = (label, value, accent = "") => `<div class="stat ${accent}"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+        const summaryHtml = `
+          <div class="summary">
+            ${stat("Total Transactions", Number(s.totalTransactions || 0).toLocaleString())}
+            ${stat("Total Gross Revenue", money(s.totalGross))}
+            ${stat("Total SehaNet Revenue", money(s.totalSehanetRevenue))}
+            ${stat("Total AltBank Share", money(s.totalAltbankShare), "accent")}
+            ${stat("Total Paystack Fees", money(s.totalPaystackFees))}
+            ${stat("SehaNet Net", money(s.totalSehanetNet))}
+          </div>`;
+
+        const agentOptions = (data.filters?.agents || [])
+          .map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("");
+        const planOptions = (data.filters?.plans || [])
+          .map((p) => `<option value="${esc(p.plan_code)}">${esc(p.plan_name)}</option>`).join("");
+
+        const filtersHtml = `
+          <div class="card">
+            <h2>Filters</h2>
+            <div class="filters">
+              <div class="field"><label>From</label><input type="date" id="f-from" value="${esc(params.get("from") || "")}" /></div>
+              <div class="field"><label>To</label><input type="date" id="f-to" value="${esc(params.get("to") || "")}" /></div>
+              <div class="field"><label>Agent</label><select id="f-agent"><option value="">All agents</option>${agentOptions}</select></div>
+              <div class="field"><label>Plan</label><select id="f-plan"><option value="">All plans</option>${planOptions}</select></div>
+              <button class="primary" id="apply">Apply</button>
+              <button class="subtle" id="reset">Reset</button>
+              <a class="btn subtle" id="export" href="/api/v1/reconciliation/altbank/export?${filterQueryString()}">Export CSV</a>
+            </div>
+          </div>`;
+
+        const monthName = (key) => {
+          const [y, m] = key.split("-");
+          return new Date(Number(y), Number(m) - 1, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
+        };
+        const monthlyRows = (data.monthly || []).map((m) => `
+          <tr>
+            <td data-label="Month">${esc(monthName(m.month))}</td>
+            <td class="num" data-label="Transactions">${Number(m.transactions).toLocaleString()}</td>
+            <td class="num" data-label="SehaNet Revenue">${money(m.sehanetRevenue)}</td>
+            <td class="num" data-label="AltBank Share">${money(m.altbankShare)}</td>
+          </tr>`).join("");
+
+        const monthlyHtml = `
+          <div class="card">
+            <h2>Monthly Summary</h2>
+            ${(data.monthly || []).length
+              ? `<table>
+                   <thead><tr><th>Month</th><th class="num">Transactions</th><th class="num">SehaNet Revenue</th><th class="num">AltBank Share</th></tr></thead>
+                   <tbody>${monthlyRows}</tbody>
+                 </table>`
+              : `<div class="empty">No data yet.</div>`}
+          </div>`;
+
+        const txRows = (data.transactions || []).map((t) => `
+          <tr>
+            <td class="ref" data-label="Payment Ref">${esc(t.paymentReference)}</td>
+            <td data-label="Date &amp; Time">${esc(new Date(t.dateTime).toLocaleString())}</td>
+            <td data-label="AltBox Agent">${esc(t.agentName)}</td>
+            <td data-label="Plan">${esc(t.planName)}</td>
+            <td class="num" data-label="Gross Amount">${money(t.grossAmount)}</td>
+            <td class="num" data-label="WellaHealth Share">${money(t.wellahealthShare)}</td>
+            <td class="num" data-label="SehaNet Share">${money(t.sehanetShare)}</td>
+            <td class="num" data-label="AltBank Share">${money(t.altbankShare)}</td>
+          </tr>`).join("");
+
+        const txHtml = `
+          <div class="card">
+            <h2>Transactions</h2>
+            ${txRows
+              ? `<table>
+                   <thead><tr>
+                     <th>Payment Reference</th><th>Date &amp; Time</th><th>AltBox Agent</th><th>Plan Name</th>
+                     <th class="num">Gross Amount</th><th class="num">WellaHealth Share</th><th class="num">SehaNet Share</th><th class="num">AltBank Share</th>
+                   </tr></thead>
+                   <tbody>${txRows}</tbody>
+                 </table>`
+              : `<div class="empty">No AltBox transactions match these filters.</div>`}
+          </div>`;
+
+        content.innerHTML = summaryHtml + filtersHtml + monthlyHtml + txHtml;
+
+        document.getElementById("apply").addEventListener("click", () => {
+          window.location.search = filterQueryString();
+        });
+        document.getElementById("reset").addEventListener("click", () => {
+          window.location.search = "token=" + encodeURIComponent(token);
+        });
+      } catch (err) {
+        content.innerHTML = `<div class="error">Could not load reconciliation data. Please try again later.</div>`;
+      }
+    }
+
+    // Restore selected dropdown values after a filtered reload.
+    window.addEventListener("DOMContentLoaded", () => {
+      load().then(() => {
+        for (const k of ["agent", "plan"]) {
+          const el = document.getElementById("f-" + k);
+          const v = params.get(k);
+          if (el && v) el.value = v;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

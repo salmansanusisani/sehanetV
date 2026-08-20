@@ -1917,6 +1917,9 @@ async function renderTeamView() {
           <option value="agent">Agent (unpaid)</option>
           <option value="ambassador">Ambassador (paid)</option>
         </select>
+        <label id="nu-altbox-wrap" style="display:none; align-self:center; gap:6px;">
+          <input type="checkbox" id="nu-altbox" />AltBox agent
+        </label>
       </div>
       <div class="grid" id="nu-ambassador-fields">
         <select id="nu-bank-code">
@@ -1955,6 +1958,12 @@ async function renderTeamView() {
           <label class="muted">Bank Account Number</label>
           <input id="eu-bank-account" placeholder="Bank Account Number" />
         </div>
+        <div id="eu-altbox-wrap" style="display:none;">
+          <label class="muted">Enrollment Source</label>
+          <label style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="eu-altbox" />AltBox agent
+          </label>
+        </div>
       </div>
       <div id="eu-bank-name-display" class="muted" style="margin-bottom:10px;"></div>
       <div class="row">
@@ -1980,6 +1989,11 @@ async function renderTeamView() {
   if (bankCodeSelect) bankCodeSelect.innerHTML = optionsHtml || `<option value="">Unable to load banks</option>`;
   if (editBankSelect) editBankSelect.innerHTML = optionsHtml || `<option value="">Unable to load banks</option>`;
 
+  document.getElementById("nu-role")?.addEventListener("change", (e) => {
+    const wrap = document.getElementById("nu-altbox-wrap");
+    if (wrap) wrap.style.display = e.target.value === "agent" ? "flex" : "none";
+  });
+
   document.getElementById("nu-submit")?.addEventListener("click", () => {
     runWithLoading(document.getElementById("nu-submit"), "Creating…", async () => {
       const outputEl = document.getElementById("nu-output");
@@ -1990,6 +2004,7 @@ async function renderTeamView() {
         username: document.getElementById("nu-username").value,
         password: document.getElementById("nu-password").value,
         role: document.getElementById("nu-role").value,
+        is_altbox: document.getElementById("nu-altbox")?.checked || false,
         bank_code: document.getElementById("nu-bank-code").value || undefined,
         bank_account_number: document.getElementById("nu-bank-account").value || undefined,
       };
@@ -2023,6 +2038,12 @@ async function renderTeamView() {
     const renewalRate = document.getElementById("eu-rate-renewal").value;
     if (newRate !== "") payload.commission_rate_new = parseFloat(newRate);
     if (renewalRate !== "") payload.commission_rate_renewal = parseFloat(renewalRate);
+
+    const altboxCheck = document.getElementById("eu-altbox");
+    const altboxWrap = document.getElementById("eu-altbox-wrap");
+    if (altboxCheck && altboxWrap && altboxWrap.style.display !== "none") {
+      payload.is_altbox = altboxCheck.checked;
+    }
 
     runWithLoading(document.getElementById("eu-submit"), "Saving…", async () => {
       outputEl.innerHTML = `<div class="muted">Saving &amp; verifying bank account with Paystack…</div>`;
@@ -2096,7 +2117,7 @@ function userRow(u) {
   return `
     <tr>
       <td><strong>${u.name}</strong><div class="muted">${u.username}</div></td>
-      <td>${u.role}</td>
+      <td>${u.role}${u.role === "agent" && Number(u.is_altbox) === 1 ? ' <span class="badge badge-active">AltBox</span>' : ""}</td>
       <td><span class="badge ${badgeClass}">${u.status}</span></td>
       <td>${bankInfo}</td>
       <td>${rates}</td>
@@ -2217,6 +2238,13 @@ async function handleTeamAction(action, id, users) {
     document.getElementById("eu-rate-renewal-wrap").style.display = isAmbassador ? "block" : "none";
     document.getElementById("eu-rate-new").value = user.commission_rate_new ?? "";
     document.getElementById("eu-rate-renewal").value = user.commission_rate_renewal ?? "";
+
+    const altboxWrap = document.getElementById("eu-altbox-wrap");
+    const altboxCheck = document.getElementById("eu-altbox");
+    if (altboxWrap && altboxCheck) {
+      altboxWrap.style.display = user.role === "agent" ? "block" : "none";
+      altboxCheck.checked = Number(user.is_altbox) === 1;
+    }
 
     document.getElementById("eu-bank-name-display").innerHTML = user.bank_account_name
       ? `Verified Account Name: <strong>${user.bank_account_name}</strong>`

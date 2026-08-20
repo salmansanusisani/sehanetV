@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'agent', 'ambassador')),
+  is_altbox TINYINT(1) NOT NULL DEFAULT 0,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'blocked', 'removed')),
 
   -- Ambassadors only
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS policies (
   price_at_enrollment DECIMAL(12,2),
   wellahealth_policy_number VARCHAR(100),
   status VARCHAR(20) DEFAULT 'Active',
+  enrollment_source VARCHAR(20) NULL,
   start_date DATE,
   end_date DATE,
   payment_reference VARCHAR(100),
@@ -171,6 +173,7 @@ CREATE TABLE IF NOT EXISTS renewals (
   amount_paid DECIMAL(12,2),
   payment_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
   payment_reference VARCHAR(100),
+  enrollment_source VARCHAR(20) NULL,
   new_end_date DATE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

@@ -57,10 +57,28 @@ function getCallbackUrl(req) {
   return `${protocol}://${host}/payment/callback`;
 }
 
+// Permanently record where an enrollment came from: 'ambassador', 'altbox',
+// or 'direct'. AltBox agents are plain agents flagged is_altbox = 1 by the
+// admin; everything else (admin, customer self-signup, plain agent) is direct.
+async function resolveEnrollmentSource(userId) {
+  if (!userId) return "direct";
+  try {
+    const [rows] = await pool.execute("SELECT role, is_altbox FROM users WHERE id = ? LIMIT 1", [userId]);
+    const user = rows[0];
+    if (!user) return "direct";
+    if (user.role === "ambassador") return "ambassador";
+    if (user.role === "agent" && Number(user.is_altbox) === 1) return "altbox";
+    return "direct";
+  } catch {
+    return "direct";
+  }
+}
+
 async function createEnrollmentRecord({
   userId, customerAccountId, existingCustomerId, firstName, lastName, phoneNumber,
   email, planCode, planName, location, gender, dateOfBirth, amountPaid,
   paymentReference, resolvedGroupId, wellahealthResult, paymentFee = 0,
+  enrollmentSource = null,
 }) {
   // Idempotency: if this payment reference already produced a policy, return
   // the existing one instead of creating a duplicate (relies on the UNIQUE
@@ -95,11 +113,12 @@ async function createEnrollmentRecord({
     const [policyResult] = await pool.execute(
       `INSERT INTO policies
         (customer_id, original_agent_id, customer_account_id, plan_code, plan_name, price_at_enrollment,
-         wellahealth_policy_number, status, start_date, end_date, payment_reference, amount_paid, payment_fee)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         wellahealth_policy_number, status, enrollment_source, start_date, end_date, payment_reference, amount_paid, payment_fee)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         customerId, userId || null, customerAccountId || null, planCode, planName || null, Number(amountPaid),
         wellahealthResult.policyNumber || null, wellahealthResult.status || "Active",
+        enrollmentSource || (await resolveEnrollmentSource(userId)),
         wellahealthResult.startDate || null, wellahealthResult.endDate || null, paymentReference, Number(amountPaid),
         Number(paymentFee || 0),
       ]
@@ -149,7 +168,7 @@ async function createEnrollmentRecord({
  * commission tracking, and snapshot the renewal commission. Idempotent via
  * the UNIQUE index on renewals.payment_reference.
  */
-async function recordRenewal({ phoneNumber, planCode, amountPaid, paymentReference, processedByAgentId, wellahealthResult, paymentFee = 0 }) {
+async function recordRenewal({ phoneNumber, planCode, amountPaid, paymentReference, processedByAgentId, wellahealthResult, paymentFee = 0, enrollmentSource = null }) {
   if (paymentReference) {
     const [existingRows] = await pool.execute(
       "SELECT id FROM renewals WHERE payment_reference = ? LIMIT 1",
@@ -178,9 +197,9 @@ async function recordRenewal({ phoneNumber, planCode, amountPaid, paymentReferen
   let renewalId;
   try {
     const [renewalResult] = await pool.execute(
-      `INSERT INTO renewals (policy_id, processed_by_agent_id, amount_paid, payment_fee, payment_reference, new_end_date)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [policy.id, processedByAgentId, amountPaid, Number(paymentFee || 0), paymentReference, wellahealthResult.endDate || null]
+      `INSERT INTO renewals (policy_id, processed_by_agent_id, amount_paid, payment_fee, payment_reference, enrollment_source, new_end_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [policy.id, processedByAgentId, amountPaid, Number(paymentFee || 0), paymentReference, enrollmentSource || (await resolveEnrollmentSource(processedByAgentId)), wellahealthResult.endDate || null]
     );
     renewalId = renewalResult.insertId;
   } catch (err) {
