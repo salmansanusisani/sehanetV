@@ -146,6 +146,10 @@ app.get("/payment/callback", async (req, res) => {
 // Public
 app.use("/api/auth", authRoutes);
 
+// Token-protected read-only reconciliation API for WellaHealth (no session,
+// no user role). Must stay above the authenticate middleware below.
+app.use("/api/v1/reconciliation", require("./routes/reconciliation"));
+
 // Everything below requires a valid, active login
 app.use("/api", authenticate);
 

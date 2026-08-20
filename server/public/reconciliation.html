@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SehaNet × WellaHealth — Reconciliation Dashboard</title>
+  <style>
+    :root {
+      --teal: #0F6D61;
+      --teal-deep: #0A2E2B;
+      --cream: #F7F3EA;
+      --ink: #08211E;
+      --muted: #64748B;
+      --border: #E2E8F0;
+      --card: #FFFFFF;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      padding: 24px 16px 48px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .logo {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--teal-deep); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1rem;
+    }
+    h1 { font-size: 1.15rem; margin: 0; color: var(--teal-deep); }
+    header p { margin: 2px 0 0; font-size: 0.78rem; color: var(--muted); }
+    .summary {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 18px;
+    }
+    .stat .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .stat .value { font-size: 1.45rem; font-weight: 800; color: var(--teal-deep); margin-top: 4px; }
+    .stat.accent { background: var(--teal-deep); border-color: var(--teal-deep); }
+    .stat.accent .label { color: rgba(255,255,255,0.7); }
+    .stat.accent .value { color: #fff; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th {
+      background: var(--teal-deep); color: #fff;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+      position: sticky; top: 0;
+    }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody tr:hover { background: var(--cream); }
+    tbody tr:last-child td { border-bottom: none; }
+    .ref { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+    .empty { padding: 32px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+    .error {
+      background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA;
+      border-radius: 12px; padding: 14px 16px; font-size: 0.88rem;
+    }
+    footer { margin-top: 18px; font-size: 0.72rem; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">SN</div>
+      <div>
+        <h1>SehaNet × WellaHealth Reconciliation</h1>
+        <p>Read-only · Successful WellaHealth enrollments</p>
+      </div>
+    </header>
+
+    <div id="content"><div class="empty">Loading…</div></div>
+
+    <footer>Confidential — for finance reconciliation only.</footer>
+  </div>
+
+  <script>
+    const money = (v) => "₦" + Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    async function load() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get("token") || "";
+      const content = document.getElementById("content");
+      try {
+        const res = await fetch("/api/v1/reconciliation/wellahealth?token=" + encodeURIComponent(token));
+        if (res.status === 401 || res.status === 503) {
+          content.innerHTML = `<div class="error">Unauthorized. A valid access token is required — ask SehaNet for your dashboard link.</div>`;
+          return;
+        }
+        if (!res.ok) throw new Error("Request failed");
+        const data = await res.json();
+        const s = data.summary || {};
+
+        const rows = (data.transactions || []).map((t) => `
+          <tr>
+            <td class="ref">${esc(t.paymentReference)}</td>
+            <td class="ref">${esc(t.policyNumber)}</td>
+            <td>${esc(new Date(t.dateTime).toLocaleString())}</td>
+            <td>${esc(t.planName)}</td>
+            <td class="num">${money(t.grossAmount)}</td>
+            <td class="num">${money(t.wellahealthShare)}</td>
+          </tr>`).join("");
+
+        content.innerHTML = `
+          <div class="summary">
+            <div class="stat"><div class="label">Total Transactions</div><div class="value">${Number(s.totalTransactions || 0).toLocaleString()}</div></div>
+            <div class="stat"><div class="label">Total Gross Value</div><div class="value">${money(s.totalGross)}</div></div>
+            <div class="stat accent"><div class="label">Total WellaHealth Share (80%)</div><div class="value">${money(s.totalWellahealthShare)}</div></div>
+          </div>
+          <div class="card">
+            ${rows
+              ? `<table>
+                   <thead><tr>
+                     <th>Payment Reference</th><th>WellaHealth Policy No.</th><th>Date &amp; Time</th>
+                     <th>Plan Name</th><th class="num">Gross Amount</th><th class="num">WellaHealth Share (80%)</th>
+                   </tr></thead>
+                   <tbody>${rows}</tbody>
+                 </table>`
+              : `<div class="empty">No successful WellaHealth transactions yet.</div>`}
+          </div>`;
+      } catch (err) {
+        content.innerHTML = `<div class="error">Could not load reconciliation data. Please try again later.</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
