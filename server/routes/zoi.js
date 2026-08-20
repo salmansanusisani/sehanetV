@@ -32,13 +32,81 @@ router.get("/plans/health", (req, res) => {
 });
 
 // GET /api/subscriptions/phone/:phoneNumber
-router.get("/subscriptions/phone/:phoneNumber", (req, res) => {
-  handle(wellahealth.getSubscriptionByPhone(req.params.phoneNumber), res);
+router.get("/subscriptions/phone/:phoneNumber", async (req, res) => {
+  const phone = req.params.phoneNumber;
+  let wellaData = null;
+  try {
+    wellaData = await wellahealth.getSubscriptionByPhone(phone);
+  } catch (err) {
+    console.error("WellaHealth phone lookup failed/skipped:", err.message);
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT p.*, c.full_name as customer_name, c.phone as customer_phone
+       FROM policies p JOIN customers c ON c.id = p.customer_id
+       WHERE c.phone = ? ORDER BY p.created_at DESC LIMIT 1`,
+      [phone]
+    );
+    const local = rows[0] || {};
+    if (!wellaData && !rows[0]) {
+      return res.status(404).json({ error: "No customer or policy found for this phone number." });
+    }
+
+    const merged = {
+      ...local,
+      ...(typeof wellaData === "object" ? wellaData : {}),
+      plan_name: wellaData?.plan_name || wellaData?.planName || wellaData?.plan || local.plan_name || local.plan_code || "—",
+      customer_name: wellaData?.customer_name || wellaData?.customerName || wellaData?.name || local.customer_name || "Customer Profile",
+      wellahealth_policy_number: wellaData?.wellahealth_policy_number || wellaData?.policyNumber || wellaData?.policy_number || local.wellahealth_policy_number || "—",
+      start_date: wellaData?.start_date || wellaData?.startDate || local.start_date || "—",
+      end_date: wellaData?.end_date || wellaData?.endDate || local.end_date || "—",
+      status: wellaData?.status || local.status || "Active",
+    };
+    res.json(merged);
+  } catch (err) {
+    console.error("Phone lookup failed:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // GET /api/subscriptions/policy/:policyNumber
-router.get("/subscriptions/policy/:policyNumber", (req, res) => {
-  handle(wellahealth.getSubscriptionByPolicy(req.params.policyNumber), res);
+router.get("/subscriptions/policy/:policyNumber", async (req, res) => {
+  const policyNum = req.params.policyNumber;
+  let wellaData = null;
+  try {
+    wellaData = await wellahealth.getSubscriptionByPolicy(policyNum);
+  } catch (err) {
+    console.error("WellaHealth policy lookup failed/skipped:", err.message);
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT p.*, c.full_name as customer_name, c.phone as customer_phone
+       FROM policies p JOIN customers c ON c.id = p.customer_id
+       WHERE p.wellahealth_policy_number = ? ORDER BY p.created_at DESC LIMIT 1`,
+      [policyNum]
+    );
+    const local = rows[0] || {};
+    if (!wellaData && !rows[0]) {
+      return res.status(404).json({ error: "No customer or policy found for this policy number." });
+    }
+
+    const merged = {
+      ...local,
+      ...(typeof wellaData === "object" ? wellaData : {}),
+      plan_name: wellaData?.plan_name || wellaData?.planName || wellaData?.plan || local.plan_name || local.plan_code || "—",
+      customer_name: wellaData?.customer_name || wellaData?.customerName || wellaData?.name || local.customer_name || "Customer Profile",
+      wellahealth_policy_number: wellaData?.wellahealth_policy_number || wellaData?.policyNumber || wellaData?.policy_number || local.wellahealth_policy_number || policyNum,
+      start_date: wellaData?.start_date || wellaData?.startDate || local.start_date || "—",
+      end_date: wellaData?.end_date || wellaData?.endDate || local.end_date || "—",
+      status: wellaData?.status || local.status || "Active",
+    };
+    res.json(merged);
+  } catch (err) {
+    console.error("Policy lookup failed:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // POST /api/subscriptions — enroll a new customer, attributed to whoever's logged in
