@@ -93,8 +93,12 @@
       const content = document.getElementById("content");
       try {
         const res = await fetch("/api/v1/reconciliation/wellahealth?token=" + encodeURIComponent(token));
-        if (res.status === 401 || res.status === 503) {
-          content.innerHTML = `<div class="error">Unauthorized. A valid access token is required — ask SehaNet for your dashboard link.</div>`;
+        if (res.status === 503) {
+          content.innerHTML = `<div class="error">This dashboard is not configured yet — the server admin needs to set the <code>WELLAHEALTH_DASHBOARD_TOKEN</code> environment variable.</div>`;
+          return;
+        }
+        if (res.status === 401) {
+          content.innerHTML = `<div class="error">Unauthorized. The access token in this link is invalid or outdated — ask SehaNet for a fresh dashboard link.</div>`;
           return;
         }
         if (!res.ok) throw new Error("Request failed");
