@@ -107,7 +107,7 @@ app.use(express.json({ limit: "200kb" }));
 // API calls resolve relative to whatever origin the page itself loaded from.
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/health", (req, res) => res.json({ status: "ok", reconciliationConfigured: Boolean(process.env.WELLAHEALTH_DASHBOARD_TOKEN) }));
+app.get("/health", (req, res) => res.json({ status: "ok", build: "2026-08-20-recon", reconciliationConfigured: Boolean(process.env.WELLAHEALTH_DASHBOARD_TOKEN) }));
 
 app.get("/payment/callback", async (req, res) => {
   const { reference } = req.query || {};
